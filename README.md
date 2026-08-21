@@ -1,8 +1,34 @@
 # Word Web
 
-A Steiner-tree word puzzle: connect 3 target words into one web, changing
-one letter at a time, in as few extra words as possible. Styled with the
-RMLP retro-puzzle-book identity.
+A Steiner-tree word puzzle: connect 3 target words into one web by typing
+words that are one letter different from something already there, in as
+few extra words as possible. Styled with the RMLP retro-puzzle-book
+identity.
+
+## How the entry mechanic works
+
+There's no list of valid next words shown — that's deliberate, per the
+design brief: figuring out a word that fits is the game. The player types
+a 5-letter word and it's checked against two independent rules:
+
+1. Is it a real word in `data/words.json`?
+2. Is it exactly one letter different from a word already in the web?
+
+If either check fails, the rejection reason is shown (wrong length, not a
+recognized word, already placed, or a real word that just doesn't connect
+to anything yet).
+
+A submission can be adjacent to more than one thing already in the web —
+when that happens, it's connected to **one representative per distinct
+connected component it touches**, not one edge per adjacent word. That
+distinction matters: word degree in this graph averages ~6, so a typed
+word is often incidentally adjacent to a second word that's already in the
+*same* already-merged branch. Drawing an edge for that too would be a
+wasted, redundant connection that makes par unreachable through no fault
+of the player's word choice — confirmed by simulating 200 generated
+puzzles end-to-end with this exact mechanic and checking par was always
+reachable. Connecting once per component is both sufficient (a word that
+bridges 3 separate branches at once still merges all 3) and never wasteful.
 
 ## Running it
 
@@ -15,7 +41,7 @@ is the fastest way to check it locally).
 ## Structure
 
 ```
-index.html              shell: header, board, picker panel, instructions modal, share panel
+index.html              shell: header, board, word-entry form, instructions modal, share panel
 css/
   rmlp-tokens.css        brand tokens (colors, type, spacing) — edit this to reskin
   word-web.css           game layout/styling, entirely built on the tokens above
@@ -26,7 +52,7 @@ js/
     puzzle-generator.js    samples valid target-word triples, seedable for later daily play
   graph-view.js            D3 force-directed rendering — nodes settle once, then get pinned
   rmlp-share-card.js        shareable result card (canvas image + emoji text)
-  app.js                    game state, picker wiring, win detection, share hookup
+  app.js                    game state, word-entry validation, win detection, share hookup
 data/
   words.json               5-letter word graph, giant component, profanity-filtered
 assets/

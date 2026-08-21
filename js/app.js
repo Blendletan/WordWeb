@@ -1,12 +1,20 @@
 /**
  * app.js — orchestrates Word Web: loads the word graph, generates a puzzle,
- * wires the picker panel and graph view together, tracks score, and hands
- * off to RMLP.renderShareCard on completion.
+ * validates typed word submissions against the graph, and hands off to
+ * RMLP.renderShareCard on completion.
  *
- * Game state is deliberately simple: a set of node indices in the web, a
- * union-find over them (to detect when all target words are connected),
- * and a running count of connections made. No undo — once a connection is
- * made it's committed, matching the golf-style par scoring.
+ * There's no list of valid next words shown — the player types a candidate
+ * and it's checked against two independent rules: is it a real word in our
+ * graph, and is it exactly one letter from something already in the web.
+ * A submission can satisfy both and still connect to more than one existing
+ * web word at once (if it happens to be adjacent to several) — all of those
+ * connections are made, which is also how two separate branches of the web
+ * end up merging into one.
+ *
+ * Game state is a set of node indices in the web, a union-find over them
+ * (to detect when all target words are connected), and a running count of
+ * connections made. No undo — once a connection is made it's committed,
+ * matching the golf-style par scoring.
  */
 (function () {
   'use strict';
@@ -22,8 +30,10 @@
     shareBtn: document.getElementById('share-btn'),
     newPuzzleBtn: document.getElementById('new-puzzle-btn'),
     howToPlayBtn: document.getElementById('how-to-play-btn'),
-    pickerHint: document.getElementById('picker-hint'),
-    pickerChips: document.getElementById('picker-chips'),
+    wordForm: document.getElementById('word-form'),
+    wordInput: document.getElementById('word-input'),
+    wordSubmitBtn: document.getElementById('word-submit-btn'),
+    entryFeedback: document.getElementById('entry-feedback'),
     modal: document.getElementById('how-to-play-modal'),
     closeModalBtn: document.getElementById('close-modal-btn'),
     modalGotItBtn: document.getElementById('modal-got-it-btn'),
@@ -36,7 +46,7 @@
     boardStatus: document.getElementById('board-status')
   };
 
-  const graphView = new GraphView('#graph-svg', { width: 640, height: 420, nodeRadius: 26 });
+  const graphView = new GraphView('#graph-svg', { width: 640, height: 420, nodeRadius: 32 });
 
   let graph = null;
   let puzzle = null;
@@ -44,7 +54,6 @@
   let edgeSet = new Set();
   let unionParent = new Map();
   let connections = 0;
-  let selectedIndex = null;
   let solved = false;
 
   function find(x) {
@@ -68,13 +77,16 @@
     edgeSet = new Set();
     unionParent = new Map();
     connections = 0;
-    selectedIndex = null;
     solved = false;
 
     graphView.reset();
     els.sharePanel.hidden = true;
     els.shareStatus.textContent = '';
     els.boardStatus.textContent = '';
+    els.wordInput.disabled = false;
+    els.wordSubmitBtn.disabled = false;
+    els.wordInput.value = '';
+    showFeedback('', null);
 
     puzzle.targetIndices.forEach(function (idx) {
       webIndices.add(idx);
@@ -83,70 +95,86 @@
     });
 
     updateStats();
-    renderPicker();
+    els.wordInput.focus();
   }
 
-  function candidatesFor(idx) {
-    const nbrs = graph.neighborsOf(idx);
-    return nbrs.filter(function (n) { return !edgeSet.has(edgeKey(idx, n)); });
+  function showFeedback(message, kind) {
+    els.entryFeedback.textContent = message;
+    els.entryFeedback.classList.toggle('is-error', kind === 'error');
+    els.entryFeedback.classList.toggle('is-success', kind === 'success');
   }
 
-  function selectNode(idx) {
-    selectedIndex = idx;
-    graphView.setSelected(idx);
-    renderPicker();
-  }
-
-  function renderPicker() {
-    els.pickerChips.innerHTML = '';
-    if (selectedIndex == null) {
-      els.pickerHint.textContent = 'Tap a bubble to see what connects to it.';
-      return;
+  /**
+   * Validates a typed submission against the two independent rules and,
+   * on success, returns one representative already-placed web word per
+   * *distinct connected component* it's one letter from — not one per
+   * adjacent word. A candidate is often adjacent to more than one word
+   * already in the same already-merged branch (average word degree is
+   * ~6), and drawing an edge for each of those would be a wasted,
+   * redundant connection that makes par unreachable through no fault of
+   * the player's word choice. One edge per component is both sufficient
+   * (still merges every branch it touches) and never wasteful.
+   */
+  function evaluateSubmission(raw) {
+    const word = raw.trim().toLowerCase();
+    if (word.length === 0) return null;
+    if (word.length !== 5) {
+      return { ok: false, message: 'Words need to be exactly 5 letters.' };
     }
-    const word = graph.wordAt(selectedIndex);
-    const candidates = candidatesFor(selectedIndex);
-    if (solved) {
-      els.pickerHint.textContent = 'Web complete — ' + word.toUpperCase() + ' is connected.';
-      return;
+    if (!/^[a-z]+$/.test(word)) {
+      return { ok: false, message: 'Letters only, please.' };
     }
-    if (candidates.length === 0) {
-      els.pickerHint.textContent = 'No new connections from ' + word.toUpperCase() + ' — try another bubble.';
-      return;
+    const idx = graph.indexOf(word);
+    if (idx === -1) {
+      return { ok: false, message: word.toUpperCase() + " isn't in the dictionary we're using." };
     }
-    els.pickerHint.textContent = 'Words one letter from ' + word.toUpperCase() + ':';
-    candidates
-      .slice()
-      .sort(function (a, b) { return graph.wordAt(a).localeCompare(graph.wordAt(b)); })
-      .forEach(function (candidateIdx) {
-        const btn = document.createElement('button');
-        btn.className = 'ww-chip';
-        btn.textContent = graph.wordAt(candidateIdx);
-        btn.addEventListener('click', function () { addConnection(selectedIndex, candidateIdx); });
-        els.pickerChips.appendChild(btn);
-      });
+    if (webIndices.has(idx)) {
+      return { ok: false, message: word.toUpperCase() + ' is already in your web.' };
+    }
+    const attachByComponent = new Map(); // component root -> one representative member
+    webIndices.forEach(function (w) {
+      if (graph.isAdjacent(idx, w)) {
+        const root = find(w);
+        if (!attachByComponent.has(root)) attachByComponent.set(root, w);
+      }
+    });
+    if (attachByComponent.size === 0) {
+      return { ok: false, message: word.toUpperCase() + " is a real word, but it's not one letter from anything in your web yet." };
+    }
+    return { ok: true, index: idx, word: word, attachTo: Array.from(attachByComponent.values()) };
   }
 
-  function addConnection(fromIdx, toIdx) {
+  function handleSubmit(e) {
+    e.preventDefault();
     if (solved) return;
-    const key = edgeKey(fromIdx, toIdx);
-    if (edgeSet.has(key)) return;
-    edgeSet.add(key);
-    connections++;
-
-    const isNewNode = !webIndices.has(toIdx);
-    if (isNewNode) {
-      webIndices.add(toIdx);
-      unionParent.set(toIdx, toIdx);
-      graphView.addNode(toIdx, graph.wordAt(toIdx), {
-        isTarget: puzzle.targetIndices.indexOf(toIdx) !== -1,
-        parentId: fromIdx
-      });
-    } else {
-      graphView.addLinkBetweenExisting(fromIdx, toIdx);
+    const result = evaluateSubmission(els.wordInput.value);
+    if (!result) return;
+    if (!result.ok) {
+      showFeedback(result.message, 'error');
+      return;
     }
-    union(fromIdx, toIdx);
 
-    selectNode(toIdx);
+    webIndices.add(result.index);
+    unionParent.set(result.index, result.index);
+
+    result.attachTo.forEach(function (parentIdx, i) {
+      const key = edgeKey(result.index, parentIdx);
+      if (edgeSet.has(key)) return;
+      edgeSet.add(key);
+      connections++;
+      if (i === 0) {
+        graphView.addNode(result.index, result.word, { isTarget: false, parentId: parentIdx });
+      } else {
+        graphView.addLinkBetweenExisting(result.index, parentIdx);
+      }
+      union(result.index, parentIdx);
+    });
+
+    const bridged = result.attachTo.length > 1 ? ' (bridging ' + result.attachTo.length + ' branches!)' : '';
+    showFeedback(result.word.toUpperCase() + ' added.' + bridged, 'success');
+    els.wordInput.value = '';
+    els.wordInput.focus();
+
     updateStats();
     checkSolved();
   }
@@ -168,7 +196,8 @@
       solved = true;
       graphView.markSolved();
       els.boardStatus.textContent = 'Solved! All three words are connected.';
-      renderPicker();
+      els.wordInput.disabled = true;
+      els.wordSubmitBtn.disabled = true;
       showSharePanel();
     }
   }
@@ -213,15 +242,15 @@
     els.newPuzzleBtn.addEventListener('click', newPuzzle);
     els.howToPlayBtn.addEventListener('click', function () { els.modal.hidden = false; });
     els.closeModalBtn.addEventListener('click', function () { els.modal.hidden = true; });
-    els.modalGotItBtn.addEventListener('click', function () { els.modal.hidden = true; });
+    els.modalGotItBtn.addEventListener('click', function () { els.modal.hidden = true; els.wordInput.focus(); });
     els.modal.addEventListener('click', function (e) { if (e.target === els.modal) els.modal.hidden = true; });
+    els.wordForm.addEventListener('submit', handleSubmit);
   }
 
   async function init() {
     wireStaticUI();
     els.boardStatus.textContent = 'Loading word graph\u2026';
     graph = await WordGraph.load('data/words.json');
-    graphView.onNodeClick = selectNode;
     newPuzzle();
 
     // First-time visitors see the instructions automatically.

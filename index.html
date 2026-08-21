@@ -49,15 +49,27 @@
   <main class="ww-board">
     <svg id="graph-svg" class="ww-graph" role="img" aria-label="Word web graph"></svg>
   </main>
-  <p class="ww-picker-hint" id="board-status" aria-live="polite"></p>
+  <p class="ww-hint" id="board-status" aria-live="polite"></p>
 
-  <section class="ww-picker" aria-live="polite">
-    <p class="ww-picker-hint" id="picker-hint">Loading word graph…</p>
-    <div class="ww-chip-row" id="picker-chips"></div>
+  <section class="ww-entry">
+    <form class="ww-entry-form" id="word-form">
+      <label class="sr-only" for="word-input">Enter a 5-letter word to add to your web</label>
+      <input
+        type="text"
+        id="word-input"
+        class="ww-word-input"
+        maxlength="5"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        placeholder="Type a 5-letter word…">
+      <button class="ww-btn ww-btn-accent" id="word-submit-btn" type="submit">Add</button>
+    </form>
+    <p class="ww-entry-feedback" id="entry-feedback" aria-live="polite"></p>
   </section>
 
   <section class="ww-share-panel" id="share-panel" hidden>
-    <p class="ww-picker-hint">Share your result</p>
+    <p class="ww-hint">Share your result</p>
     <div id="share-canvas-wrap"></div>
     <div class="ww-share-actions">
       <button class="ww-btn" id="share-copy-image-btn" type="button">Copy image</button>
@@ -73,9 +85,9 @@
       <h2 class="ww-modal-title" id="how-to-play-title">How to play</h2>
       <ol>
         <li>You start with <strong>3 words</strong> in your web, not connected to each other yet.</li>
-        <li>Tap any word bubble. Every real word that's just <strong>one letter different</strong> will show up below it as a choice.</li>
-        <li>Tap a choice to add it to your web, connected to the bubble you tapped.</li>
-        <li>Keep going, tapping any bubble in your growing web, until all <strong>3 starting words</strong> are linked into a single web.</li>
+        <li>Type any real 5-letter word that's just <strong>one letter different</strong> from a word already in your web, then press <strong>Add</strong> (or hit Enter).</li>
+        <li>If it's not a word we know, or it's not one letter from anything in your web yet, you'll be told which — fix it and try again.</li>
+        <li>Keep going until all <strong>3 starting words</strong> are linked into a single web. There's no list to pick from — figuring out a word that fits is the game.</li>
         <li>The fewer extra words you need, the better your score. <strong>Par</strong> is the fewest possible — matching it is a perfect score, and there's no going back once a word is placed.</li>
       </ol>
       <div class="ww-example">
