@@ -1,0 +1,74 @@
+/* RMLP Design Tokens — retro puzzle-book palette, v1
+   Load fonts separately first (see rmlp-fonts.html) before using these. */
+
+:root {
+  /* Color: paper */
+  --rmlp-paper: #F6EFDD;
+  --rmlp-paper-raised: #FBF6EA;
+
+  /* Color: ink */
+  --rmlp-ink: #2A2018;
+  --rmlp-ink-muted: #6E5D4C;
+
+  /* Color: structure (borders, graph edges, rules) */
+  --rmlp-rule: #C9B896;
+
+  /* Color: accents */
+  --rmlp-accent-red: #C1432B;   /* primary / CTA / brand */
+  --rmlp-accent-teal: #1F5C55;  /* secondary / links / info */
+  --rmlp-accent-gold: #C99A2E;  /* success / par-achieved */
+  --rmlp-invalid: #A8501B;      /* invalid-word / error feedback */
+
+  /* Typography */
+  --rmlp-font-display: 'Fraunces', Georgia, serif;
+  --rmlp-font-ui: 'Libre Franklin', -apple-system, BlinkMacSystemFont, sans-serif;
+  --rmlp-font-mono: 'Courier Prime', 'Courier New', monospace;
+
+  /* Type scale */
+  --rmlp-text-xs: 11px;
+  --rmlp-text-sm: 13px;
+  --rmlp-text-base: 15px;
+  --rmlp-text-lg: 20px;
+  --rmlp-text-xl: 28px;
+  --rmlp-text-2xl: 40px;
+
+  /* Radius */
+  --rmlp-radius-sm: 3px;
+  --rmlp-radius-md: 6px;
+  --rmlp-radius-lg: 12px;
+
+  /* Spacing (base unit 4px) */
+  --rmlp-space-1: 4px;
+  --rmlp-space-2: 8px;
+  --rmlp-space-3: 12px;
+  --rmlp-space-4: 16px;
+  --rmlp-space-6: 24px;
+  --rmlp-space-8: 32px;
+}
+
+/* Opt-in base classes — apply .rmlp-root to a game's root container */
+.rmlp-root {
+  background: var(--rmlp-paper);
+  color: var(--rmlp-ink);
+  font-family: var(--rmlp-font-ui);
+}
+
+.rmlp-heading {
+  font-family: var(--rmlp-font-display);
+  font-weight: 700;
+  color: var(--rmlp-ink);
+}
+
+.rmlp-label {
+  font-family: var(--rmlp-font-mono);
+  font-size: var(--rmlp-text-xs);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--rmlp-ink-muted);
+}
+
+.rmlp-surface-raised {
+  background: var(--rmlp-paper-raised);
+  border: 1px solid var(--rmlp-rule);
+  border-radius: var(--rmlp-radius-md);
+}

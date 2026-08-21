@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
+<title>RMLP mark</title>
+<desc>Simplified RMLP mark: a five-node graph inside a circular seal, for use as a favicon or small app icon.</desc>
+<circle cx="32" cy="32" r="29" fill="#F6EFDD" stroke="#2A2018" stroke-width="2.5"/>
+<line x1="32" y1="52.5" x2="21.8" y2="43.9" stroke="#C1432B" stroke-width="2"/>
+<line x1="32" y1="52.5" x2="41.8" y2="43.9" stroke="#C1432B" stroke-width="2"/>
+<line x1="21.8" y1="43.9" x2="26.9" y2="37.1" stroke="#C1432B" stroke-width="2"/>
+<line x1="41.8" y1="43.9" x2="37.1" y2="37.1" stroke="#C1432B" stroke-width="2"/>
+<line x1="26.9" y1="37.1" x2="37.1" y2="37.1" stroke="#C1432B" stroke-width="2"/>
+<circle cx="32" cy="52.5" r="3.2" fill="#C1432B"/>
+<circle cx="21.8" cy="43.9" r="3.2" fill="#C1432B"/>
+<circle cx="41.8" cy="43.9" r="3.2" fill="#C1432B"/>
+<circle cx="26.9" cy="37.1" r="3.2" fill="#C1432B"/>
+<circle cx="37.1" cy="37.1" r="3.2" fill="#C1432B"/>
+</svg>
