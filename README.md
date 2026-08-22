@@ -48,11 +48,11 @@ css/
 js/
   lib/
     wordgraph.js          adjacency accessor over data/words.json
-    steiner.js             exact Dreyfus-Wagner Steiner-tree solver (par computation)
-    puzzle-generator.js    samples valid target-word triples, seedable for later daily play
-  graph-view.js            D3 force-directed rendering — nodes settle once, then get pinned
+    steiner.js             exact Dreyfus-Wagner Steiner-tree solver (par) + k=3 optimal-tree reconstruction (for Reveal Answer)
+    puzzle-generator.js    samples valid target-word triples, seedable — this is what the daily puzzle's determinism runs on
+  graph-view.js            D3 force-directed rendering — nodes settle once, then get pinned; bubble size steps down in tiers as the web grows
   rmlp-share-card.js        shareable result card (canvas image + emoji text)
-  app.js                    game state, word-entry validation, win detection, share hookup
+  app.js                    game state, word-entry validation, daily puzzle + persistence, reveal, share hookup
 data/
   words.json               5-letter word graph, giant component, profanity-filtered
 assets/
@@ -68,21 +68,58 @@ edit, not a rewrite.
 
 ## Daily puzzle
 
-The puzzle is deterministic per the player's **local calendar date** —
-same approach Wordle uses, so players in different timezones may roll
-over at different real-world moments. That's a known tradeoff of going
-local-date over a fixed UTC rollover, not a bug: it needs no backend,
-which fixed-rollover consistency would.
+There's exactly one puzzle a day, deterministic per the player's **local
+calendar date** — same approach Wordle uses, so players in different
+timezones may roll over at different real-world moments. That's a known
+tradeoff of going local-date over a fixed UTC rollover, not a bug: it
+needs no backend, which fixed-rollover consistency would.
 
 Day numbering and the seed both come from `EPOCH_DATE` near the top of
 `js/app.js` — move that constant if you want to renumber (e.g. back-date
 to when the game actually first went live, rather than whenever this
 feature shipped).
 
-**Practice puzzle** (the header button) generates a genuine random puzzle,
-unseeded — deliberately separate from the daily one, and labeled as such
-in the UI and in the share card title, so a practice run never gets
-confused with "today's" shared puzzle.
+## Resuming a session
+
+Progress persists in `localStorage` under `ww-daily-progress`: the day
+number, the ordered list of words the player typed, and (if used) the
+ordered list of words Reveal Answer added. On load, if the stored day
+matches today, the daily puzzle is regenerated (deterministic from the
+seed) and every stored word is replayed through the same commit logic
+live play uses — so the rebuilt state is exactly what it would have been
+had the tab never closed, not an approximation. If the stored day is
+from a previous day, it's just ignored and a fresh puzzle loads.
+
+## Reveal Answer
+
+A confirm step guards it — it's irreversible and ends the day's puzzle,
+so a stray tap shouldn't cost the whole thing. On confirm, every word from
+the optimal solution the player hadn't already found gets added, styled
+distinctly (`.is-revealed` in `word-web.css`) so it's clear which bubbles
+were theirs and which they were missing. Nothing already on the board is
+touched or removed — reveal only ever adds. A revealed word that bridges
+more than one existing branch attaches to all of them, same as live play.
+
+Tree reconstruction (`SteinerSolver.reconstructOptimalTreeK3`) is specific
+to exactly 3 terminals — it uses the fact that for k=3 the optimal Steiner
+tree is always the union of shortest paths from each terminal to whichever
+single vertex minimizes the sum of the three distances to it. That's not
+true in general for k=4+, so a future hard mode would need a proper
+Dreyfus-Wagner backtrack instead of this shortcut.
+
+Revealing is scored and shared as its own state, not folded into the
+normal par comparison — see "Score naming" below.
+
+## Score naming
+
+- Status chip: **Perfect** (matched par exactly) / **+N** (N over par) /
+  **Revealed** (gave up).
+- Share text: **"Perfect score"** (full phrase, more room there) /
+  **"+N over par"** / **"This one beat me!"**.
+- The revealed share card's row of cells shows how far the player's own
+  play got before giving up — gold for connections they actually made,
+  dull for the rest of par's length — rather than just being blank or a
+  flat "you lost" bar.
 
 ## Share link
 
@@ -112,21 +149,47 @@ set) so it stops moving. Adding a new node re-pins everything else first, so
 only the new node (and merges between existing pinned nodes, which don't
 move at all) animate.
 
+Two related fixes: a continuous bounds-clamping force keeps nodes inside
+the board on every tick, not just when they're first placed (mutual
+repulsion between enough nodes was pushing some of them past the edges
+over time). And bubble size steps down in tiers as the web grows past 10,
+then 16 nodes, rather than scrolling or shrinking the whole board — seeing
+the whole web at a glance matters more here than fixed bubble size.
+Crossing a tier is the one deliberate exception to "no jiggle": the board
+briefly re-settles at the new size, since leaving bubbles pinned at
+spacing sized for bigger bubbles would look broken once everything else
+shrinks around them.
+
 ## Verified before shipping
 
 - The JS Steiner solver was cross-checked against a Python reference
   implementation on the same graph — exact match on every trial.
-- 25 generated puzzles were checked end-to-end: the optimal Steiner tree for
-  each is reachable via the actual click-to-connect game mechanic in exactly
-  `par` connections, not just correct as an abstract number.
-- Puzzle generation was seed-tested for determinism (same seed → same
-  puzzle) — that's the hook a future daily-puzzle mode plugs into
-  (`PuzzleGenerator.generate(graph, { seed: <day-based number> })`).
+- The k=3 optimal-tree reconstruction used by Reveal Answer was checked
+  against the solver's own par value across 300 puzzles — always matches
+  exactly, and always includes all 3 targets.
+- 200+ generated puzzles were checked end-to-end: the optimal Steiner tree
+  for each is reachable via the actual type-to-connect game mechanic in
+  exactly `par` connections, not just correct as an abstract number.
+- Reveal Answer was tested after partial play: it always completes the
+  puzzle, never touches or removes a word the player had already found,
+  and the player's own "connections" count never gets inflated by the
+  words reveal adds.
+- The persist/replay path was tested by simulating a session, saving just
+  the ordered word list, then rebuilding state against a freshly
+  regenerated puzzle from that list alone — the rebuilt web, edge count,
+  and connections count all came out identical to the original session,
+  across 10 trials.
+- Puzzle generation was seed-tested for determinism (same local date →
+  same puzzle every time).
 
 ## Open items / not done here
 
-- **k=4 hard mode.** Only the k=3 standard puzzle is wired up.
+- **k=4 hard mode.** Only the k=3 standard puzzle is wired up — see the
+  Reveal Answer note above on why that reconstruction shortcut doesn't
+  extend to k=4 as-is.
+- **Hints.** Not implemented; explicitly deferred until after feedback.
 - **Word-list review.** Flagged above — worth your own look.
 - **Archive/back-catalog.** There's no way to play a past day's puzzle
   right now — today's is the only one reachable.
+- **Own server / hosting move.** Still a static GitHub Pages site.
 

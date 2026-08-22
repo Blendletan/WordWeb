@@ -133,5 +133,63 @@
     return c;
   }
 
-  root.SteinerSolver = { minSteinerEdges: minSteinerEdges };
+  /**
+   * Reconstructs an actual minimum Steiner tree (not just its size) for
+   * exactly 3 terminals, using the "star point" property: for k=3, the
+   * optimal tree is always the union of shortest paths from each terminal
+   * to whichever single vertex v minimizes the sum of the three distances
+   * to it. This is specific to k=3 — it is NOT valid for k=4+; a future
+   * k=4 mode would need a proper Dreyfus-Wagner backtrack instead, since
+   * with 4+ terminals the optimal tree isn't always a single-hub star.
+   *
+   * @param {number[][]} adjacency
+   * @param {number[]} terminals - must have length exactly 3
+   * @returns {number[]} node indices in the optimal tree (terminals included)
+   */
+  function reconstructOptimalTreeK3(adjacency, terminals) {
+    if (terminals.length !== 3) {
+      throw new Error('reconstructOptimalTreeK3 requires exactly 3 terminals');
+    }
+    const n = adjacency.length;
+
+    function bfsWithParent(src) {
+      const dist = new Float64Array(n).fill(Infinity);
+      const parent = new Int32Array(n).fill(-1);
+      dist[src] = 0;
+      const queue = [src];
+      let head = 0;
+      while (head < queue.length) {
+        const u = queue[head++];
+        const nbrs = adjacency[u];
+        for (let j = 0; j < nbrs.length; j++) {
+          const v = nbrs[j];
+          if (dist[v] === Infinity) {
+            dist[v] = dist[u] + 1;
+            parent[v] = u;
+            queue.push(v);
+          }
+        }
+      }
+      return { dist: dist, parent: parent };
+    }
+
+    const bfss = terminals.map(bfsWithParent);
+    let best = Infinity, bestV = -1;
+    for (let v = 0; v < n; v++) {
+      const sum = bfss[0].dist[v] + bfss[1].dist[v] + bfss[2].dist[v];
+      if (sum < best) { best = sum; bestV = v; }
+    }
+
+    const nodeSet = new Set();
+    bfss.forEach(function (b) {
+      let cur = bestV;
+      while (cur !== -1) {
+        nodeSet.add(cur);
+        cur = b.parent[cur];
+      }
+    });
+    return Array.from(nodeSet);
+  }
+
+  root.SteinerSolver = { minSteinerEdges: minSteinerEdges, reconstructOptimalTreeK3: reconstructOptimalTreeK3 };
 })(typeof window !== 'undefined' ? window : globalThis);

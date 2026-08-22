@@ -26,7 +26,7 @@
     </div>
     <div class="ww-header-actions">
       <button class="ww-btn" id="how-to-play-btn" type="button">How to play</button>
-      <button class="ww-btn" id="new-puzzle-btn" type="button">Practice puzzle</button>
+      <button class="ww-btn" id="reveal-btn" type="button">Reveal Answer</button>
     </div>
   </header>
 
@@ -43,7 +43,6 @@
       <span class="ww-label">Score</span>
       <span class="ww-status-value" id="score-value">–</span>
     </div>
-    <button class="ww-btn ww-btn-accent" id="share-btn" type="button" hidden>Share result</button>
   </div>
 
   <main class="ww-board">
@@ -88,7 +87,8 @@
         <li>Type any real 5-letter word that's just <strong>one letter different</strong> from a word already in your web, then press <strong>Add</strong> (or hit Enter).</li>
         <li>If it's not a word we know, or it's not one letter from anything in your web yet, you'll be told which — fix it and try again.</li>
         <li>Keep going until all <strong>3 starting words</strong> are linked into a single web. There's no list to pick from — figuring out a word that fits is the game.</li>
-        <li>The fewer extra words you need, the better your score. <strong>Par</strong> is the fewest possible — matching it is a perfect score, and there's no going back once a word is placed.</li>
+        <li>The fewer extra words you need, the better your score. <strong>Par</strong> is the fewest possible — matching it is a Perfect score, and there's no going back once a word is placed.</li>
+        <li>There's one puzzle a day. Stuck? <strong>Reveal Answer</strong> shows the solution — but it ends today's puzzle, and there's no trying again until tomorrow's.</li>
       </ol>
       <div class="ww-example">
         <p class="ww-example-title">A worked example</p>
@@ -101,7 +101,23 @@
     </div>
   </div>
 
+  <div class="ww-modal-backdrop" id="reveal-confirm-modal" hidden>
+    <div class="ww-modal" role="dialog" aria-modal="true" aria-labelledby="reveal-confirm-title">
+      <button class="ww-modal-close" id="reveal-confirm-close-btn" type="button" aria-label="Close">&times;</button>
+      <h2 class="ww-modal-title" id="reveal-confirm-title">Reveal the answer?</h2>
+      <p>This shows the optimal solution and marks today's puzzle <strong>Revealed</strong>. There's no way to try again until tomorrow's puzzle.</p>
+      <div class="ww-modal-actions">
+        <button class="ww-btn" id="reveal-cancel-btn" type="button">Cancel</button>
+        <button class="ww-btn ww-btn-accent" id="reveal-confirm-btn" type="button">Reveal Answer</button>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<footer class="ww-footer">
+  Questions or concerns? <a href="mailto:robertparkinson@shaw.ca">robertparkinson@shaw.ca</a>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="js/lib/wordgraph.js"></script>

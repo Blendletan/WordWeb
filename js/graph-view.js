@@ -3,15 +3,30 @@
  * but pins every node in place once it settles. Only a newly added node
  * (and, briefly, its immediate link) is free to move; everything already
  * on the board stays put. That's what keeps the bubbles from jiggling.
+ *
+ * Bubble size shrinks in tiers as the web grows past a node-count
+ * threshold, rather than scrolling or letting nodes run off the board —
+ * seeing the whole web at a glance matters more here than keeping bubbles
+ * at a fixed size. Crossing a tier is the one deliberate exception to "no
+ * jiggle": the board briefly re-settles into the tighter layout, since
+ * leaving already-placed bubbles pinned at their old (now oversized)
+ * spacing would look broken once everything else shrinks around them.
  */
 (function (root) {
   'use strict';
 
+  function tierForCount(count) {
+    if (count <= 10) return { radius: 32, font: 15 };
+    if (count <= 16) return { radius: 24, font: 12 };
+    return { radius: 18, font: 10 };
+  }
+
   function GraphView(svgSelector, options) {
     options = options || {};
-    this.width = options.width || 640;
-    this.height = options.height || 420;
+    this.width = options.width || 720;
+    this.height = options.height || 480;
     this.nodeRadius = options.nodeRadius || 32;
+    this.fontSize = options.fontSize || 15;
 
     this.svg = d3.select(svgSelector)
       .attr('viewBox', '0 0 ' + this.width + ' ' + this.height)
@@ -27,10 +42,22 @@
 
     const self = this;
     this.simulation = d3.forceSimulation(this.nodes)
-      .force('link', d3.forceLink(this.links).id(function (d) { return d.id; }).distance(78).strength(0.9))
+      .force('link', d3.forceLink(this.links).id(function (d) { return d.id; }).distance(this.nodeRadius * 2.4).strength(0.9))
       .force('charge', d3.forceManyBody().strength(-170))
       .force('collide', d3.forceCollide(this.nodeRadius + 6))
       .force('center', d3.forceCenter(this.width / 2, this.height / 2).strength(0.02))
+      // Continuous bounds clamp — without this, mutual repulsion between
+      // enough nodes can push some of them past the visible box over time,
+      // not just at the moment they're first placed.
+      .force('bounds', function () {
+        const r = self.nodeRadius;
+        self.nodes.forEach(function (n) {
+          if (n.x < r) n.x = r;
+          else if (n.x > self.width - r) n.x = self.width - r;
+          if (n.y < r) n.y = r;
+          else if (n.y > self.height - r) n.y = self.height - r;
+        });
+      })
       .alphaDecay(0.08)
       .on('tick', function () { self._render(); })
       .on('end', function () { self._pinAll(); });
@@ -56,6 +83,7 @@
    * @param {string} word
    * @param {Object} [opts]
    * @param {boolean} [opts.isTarget]
+   * @param {boolean} [opts.revealed] - styled distinctly: a word the player hadn't found
    * @param {number} [opts.parentId] - existing node this one connects from
    */
   GraphView.prototype.addNode = function (id, word, opts) {
@@ -65,6 +93,20 @@
     // Pin everything already on the board so reheating the simulation
     // only moves the node we're about to add.
     this._pinAll();
+
+    const newScale = tierForCount(this.nodes.length + 1);
+    const tierChanged = newScale.radius !== this.nodeRadius;
+    if (tierChanged) {
+      // Board is about to get more crowded than the current bubble size
+      // can hold gracefully — let everything re-settle at the new size
+      // rather than leaving old bubbles pinned at spacing that no longer
+      // matches.
+      this.nodes.forEach(function (n) { n.fx = null; n.fy = null; });
+    }
+    this.nodeRadius = newScale.radius;
+    this.fontSize = newScale.font;
+    this.simulation.force('collide').radius(this.nodeRadius + 6);
+    this.simulation.force('link').distance(this.nodeRadius * 2.4);
 
     const parent = opts.parentId != null ? this.nodeById.get(opts.parentId) : null;
     let x, y;
@@ -82,7 +124,7 @@
     x = Math.max(this.nodeRadius, Math.min(this.width - this.nodeRadius, x));
     y = Math.max(this.nodeRadius, Math.min(this.height - this.nodeRadius, y));
 
-    const node = { id: id, word: word, isTarget: !!opts.isTarget, x: x, y: y };
+    const node = { id: id, word: word, isTarget: !!opts.isTarget, revealed: !!opts.revealed, x: x, y: y };
     this.nodes.push(node);
     this.nodeById.set(id, node);
 
@@ -92,7 +134,7 @@
 
     this.simulation.nodes(this.nodes);
     this.simulation.force('link').links(this.links);
-    this.simulation.alpha(0.55).restart();
+    this.simulation.alpha(tierChanged ? 0.8 : 0.55).restart();
   };
 
   /**
@@ -129,12 +171,15 @@
 
     const nodeEnter = node.enter().append('g').attr('class', 'ww-node');
 
-    nodeEnter.append('circle').attr('class', 'ww-node-circle').attr('r', this.nodeRadius);
+    nodeEnter.append('circle').attr('class', 'ww-node-circle');
     nodeEnter.append('text').attr('class', 'ww-node-label').text(function (d) { return d.word; });
 
     const merged = nodeEnter.merge(node);
     merged.attr('transform', function (d) { return 'translate(' + d.x + ',' + d.y + ')'; })
-      .classed('is-target', function (d) { return d.isTarget; });
+      .classed('is-target', function (d) { return d.isTarget; })
+      .classed('is-revealed', function (d) { return !!d.revealed; });
+    merged.select('circle.ww-node-circle').attr('r', this.nodeRadius);
+    merged.select('text.ww-node-label').style('font-size', this.fontSize + 'px');
 
     node.exit().remove();
   };

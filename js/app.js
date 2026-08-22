@@ -1,7 +1,8 @@
 /**
- * app.js — orchestrates Word Web: loads the word graph, generates a puzzle,
- * validates typed word submissions against the graph, and hands off to
- * RMLP.renderShareCard on completion.
+ * app.js — orchestrates Word Web: loads the word graph, generates the
+ * day's puzzle, validates typed word submissions, persists progress so a
+ * closed tab resumes where it left off, and hands off to
+ * RMLP.renderShareCard on completion (solved or revealed).
  *
  * There's no list of valid next words shown — the player types a candidate
  * and it's checked against two independent rules: is it a real word in our
@@ -14,7 +15,9 @@
  * Game state is a set of node indices in the web, a union-find over them
  * (to detect when all target words are connected), and a running count of
  * connections made. No undo — once a connection is made it's committed,
- * matching the golf-style par scoring.
+ * matching the golf-style par scoring. Revealing the answer is a separate
+ * terminal state from solving, and doesn't count toward "connections" —
+ * it's scored and shared distinctly ("Revealed" / "This one beat me!").
  */
 (function () {
   'use strict';
@@ -23,6 +26,8 @@
   const PAR_MIN = 5;
   const PAR_MAX = 8;
   const GAME_URL = 'https://blendletan.github.io/WordWeb/';
+  const STORAGE_KEY = 'ww-daily-progress';
+  const INSTRUCTIONS_SEEN_KEY = 'ww-seen-instructions-v2'; // bumped so returning players see the Reveal Answer note once
 
   // Daily puzzle: deterministic per the player's local calendar date, so
   // everyone who opens the game on the same day gets the same puzzle —
@@ -52,8 +57,7 @@
     parValue: document.getElementById('par-value'),
     connectionsValue: document.getElementById('connections-value'),
     scoreValue: document.getElementById('score-value'),
-    shareBtn: document.getElementById('share-btn'),
-    newPuzzleBtn: document.getElementById('new-puzzle-btn'),
+    revealBtn: document.getElementById('reveal-btn'),
     howToPlayBtn: document.getElementById('how-to-play-btn'),
     wordForm: document.getElementById('word-form'),
     wordInput: document.getElementById('word-input'),
@@ -62,6 +66,10 @@
     modal: document.getElementById('how-to-play-modal'),
     closeModalBtn: document.getElementById('close-modal-btn'),
     modalGotItBtn: document.getElementById('modal-got-it-btn'),
+    revealConfirmModal: document.getElementById('reveal-confirm-modal'),
+    revealConfirmCloseBtn: document.getElementById('reveal-confirm-close-btn'),
+    revealCancelBtn: document.getElementById('reveal-cancel-btn'),
+    revealConfirmBtn: document.getElementById('reveal-confirm-btn'),
     sharePanel: document.getElementById('share-panel'),
     shareCanvasWrap: document.getElementById('share-canvas-wrap'),
     shareCopyImageBtn: document.getElementById('share-copy-image-btn'),
@@ -72,17 +80,19 @@
     subtitle: document.getElementById('ww-subtitle')
   };
 
-  const graphView = new GraphView('#graph-svg', { width: 640, height: 420, nodeRadius: 32 });
+  const graphView = new GraphView('#graph-svg', { width: 720, height: 480, nodeRadius: 32 });
 
   let graph = null;
   let puzzle = null;
+  let dayNumber = null;
   let webIndices = new Set();
   let edgeSet = new Set();
   let unionParent = new Map();
-  let connections = 0;
+  let connections = 0;      // the player's own connections only — reveal-adds never touch this
   let solved = false;
-  let isDaily = true;
-  let dayNumber = null;
+  let revealed = false;
+  let submittedWords = [];  // ordered word indices the player typed, for persistence/replay
+  let revealedWords = [];   // ordered word indices added via Reveal Answer
 
   function find(x) {
     while (unionParent.get(x) !== x) x = unionParent.get(x);
@@ -94,30 +104,123 @@
   }
   function edgeKey(a, b) { return a < b ? a + ':' + b : b + ':' + a; }
 
+  function persistState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        dayNumber: dayNumber,
+        submittedWords: submittedWords,
+        revealedWords: revealedWords,
+        status: revealed ? 'revealed' : (solved ? 'solved' : 'in-progress')
+      }));
+    } catch (e) { /* localStorage unavailable (private browsing etc.) — progress just won't resume */ }
+  }
+
+  function loadPersistedState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * One representative already-placed web word per *distinct connected
+   * component* that idx is one letter from — not one per adjacent word.
+   * A candidate is often adjacent to more than one word already in the
+   * same already-merged branch (average word degree is ~6), and drawing
+   * an edge for each of those would be a wasted, redundant connection
+   * that makes par unreachable through no fault of the player's word
+   * choice. One edge per component is both sufficient (still merges
+   * every branch it touches) and never wasteful. Shared by live
+   * submission, replay-on-load, and Reveal Answer.
+   */
+  function findAttachPoints(idx) {
+    const attachByComponent = new Map();
+    webIndices.forEach(function (w) {
+      if (graph.isAdjacent(idx, w)) {
+        const root = find(w);
+        if (!attachByComponent.has(root)) attachByComponent.set(root, w);
+      }
+    });
+    return Array.from(attachByComponent.values());
+  }
+
+  /**
+   * Adds a word to the web and wires its edges. Shared by live
+   * submission, replay-on-load, and Reveal Answer — isRevealed controls
+   * only the visual style and whether it counts toward "connections"
+   * (revealed words never do; that stat reflects the player's own play).
+   */
+  function commitNewWord(idx, word, attachTo, isRevealed) {
+    webIndices.add(idx);
+    unionParent.set(idx, idx);
+    attachTo.forEach(function (parentIdx, i) {
+      const key = edgeKey(idx, parentIdx);
+      if (edgeSet.has(key)) return;
+      edgeSet.add(key);
+      if (!isRevealed) connections++;
+      if (i === 0) {
+        graphView.addNode(idx, word, { isTarget: false, parentId: parentIdx, revealed: !!isRevealed });
+      } else {
+        graphView.addLinkBetweenExisting(idx, parentIdx);
+      }
+      union(idx, parentIdx);
+    });
+  }
+
   function loadDailyPuzzle() {
     const info = todayInfo();
     const result = PuzzleGenerator.generate(graph, { k: K, minPar: PAR_MIN, maxPar: PAR_MAX, maxAttempts: 3000, seed: info.seed });
-    startPuzzle(result, { daily: true, dayNumber: info.dayNumber });
+    startPuzzle(result, info.dayNumber);
+
+    const saved = loadPersistedState();
+    if (!saved || saved.dayNumber !== info.dayNumber) return; // no saved state, or it's from a previous day
+
+    (saved.submittedWords || []).forEach(function (idx) {
+      const attach = findAttachPoints(idx);
+      if (attach.length > 0) {
+        commitNewWord(idx, graph.wordAt(idx), attach, false);
+        submittedWords.push(idx);
+      }
+    });
+    updateStats();
+
+    if (saved.status === 'revealed') {
+      (saved.revealedWords || []).forEach(function (idx) {
+        const attach = findAttachPoints(idx);
+        if (attach.length > 0) {
+          commitNewWord(idx, graph.wordAt(idx), attach, true);
+          revealedWords.push(idx);
+        }
+      });
+      revealed = true;
+      els.wordInput.disabled = true;
+      els.wordSubmitBtn.disabled = true;
+      els.revealBtn.disabled = true;
+      els.boardStatus.textContent = 'Answer revealed.';
+      updateStats();
+      showSharePanel();
+    } else {
+      checkSolved(); // no-ops harmlessly if not actually all-connected yet
+    }
   }
 
-  function loadPracticePuzzle() {
-    const result = PuzzleGenerator.generate(graph, { k: K, minPar: PAR_MIN, maxPar: PAR_MAX, maxAttempts: 3000 });
-    startPuzzle(result, { daily: false });
-  }
-
-  function startPuzzle(result, meta) {
+  function startPuzzle(result, dayNum) {
     if (!result) {
       els.boardStatus.textContent = 'Could not generate a puzzle — try again.';
       return;
     }
     puzzle = result;
-    isDaily = meta.daily;
-    dayNumber = meta.dayNumber || null;
+    dayNumber = dayNum;
     webIndices = new Set();
     edgeSet = new Set();
     unionParent = new Map();
     connections = 0;
     solved = false;
+    revealed = false;
+    submittedWords = [];
+    revealedWords = [];
 
     graphView.reset();
     els.sharePanel.hidden = true;
@@ -126,10 +229,9 @@
     els.wordInput.disabled = false;
     els.wordSubmitBtn.disabled = false;
     els.wordInput.value = '';
+    els.revealBtn.disabled = false;
     showFeedback('', null);
-    els.subtitle.textContent = isDaily
-      ? 'Day #' + dayNumber + ' — connect the words, one letter at a time.'
-      : 'Practice puzzle — connect the words, one letter at a time.';
+    els.subtitle.textContent = 'Day #' + dayNumber + ' — connect the words, one letter at a time.';
 
     puzzle.targetIndices.forEach(function (idx) {
       webIndices.add(idx);
@@ -147,17 +249,6 @@
     els.entryFeedback.classList.toggle('is-success', kind === 'success');
   }
 
-  /**
-   * Validates a typed submission against the two independent rules and,
-   * on success, returns one representative already-placed web word per
-   * *distinct connected component* it's one letter from — not one per
-   * adjacent word. A candidate is often adjacent to more than one word
-   * already in the same already-merged branch (average word degree is
-   * ~6), and drawing an edge for each of those would be a wasted,
-   * redundant connection that makes par unreachable through no fault of
-   * the player's word choice. One edge per component is both sufficient
-   * (still merges every branch it touches) and never wasteful.
-   */
   function evaluateSubmission(raw) {
     const word = raw.trim().toLowerCase();
     if (word.length === 0) return null;
@@ -174,22 +265,16 @@
     if (webIndices.has(idx)) {
       return { ok: false, message: word.toUpperCase() + ' is already in your web.' };
     }
-    const attachByComponent = new Map(); // component root -> one representative member
-    webIndices.forEach(function (w) {
-      if (graph.isAdjacent(idx, w)) {
-        const root = find(w);
-        if (!attachByComponent.has(root)) attachByComponent.set(root, w);
-      }
-    });
-    if (attachByComponent.size === 0) {
+    const attachTo = findAttachPoints(idx);
+    if (attachTo.length === 0) {
       return { ok: false, message: word.toUpperCase() + " is a real word, but it's not one letter from anything in your web yet." };
     }
-    return { ok: true, index: idx, word: word, attachTo: Array.from(attachByComponent.values()) };
+    return { ok: true, index: idx, word: word, attachTo: attachTo };
   }
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (solved) return;
+    if (solved || revealed) return;
     const result = evaluateSubmission(els.wordInput.value);
     if (!result) return;
     if (!result.ok) {
@@ -197,21 +282,8 @@
       return;
     }
 
-    webIndices.add(result.index);
-    unionParent.set(result.index, result.index);
-
-    result.attachTo.forEach(function (parentIdx, i) {
-      const key = edgeKey(result.index, parentIdx);
-      if (edgeSet.has(key)) return;
-      edgeSet.add(key);
-      connections++;
-      if (i === 0) {
-        graphView.addNode(result.index, result.word, { isTarget: false, parentId: parentIdx });
-      } else {
-        graphView.addLinkBetweenExisting(result.index, parentIdx);
-      }
-      union(result.index, parentIdx);
-    });
+    commitNewWord(result.index, result.word, result.attachTo, false);
+    submittedWords.push(result.index);
 
     const bridged = result.attachTo.length > 1 ? ' (bridging ' + result.attachTo.length + ' branches!)' : '';
     showFeedback(result.word.toUpperCase() + ' added.' + bridged, 'success');
@@ -220,39 +292,102 @@
 
     updateStats();
     checkSolved();
+    persistState();
   }
 
   function updateStats() {
     els.parValue.textContent = puzzle.par;
     els.connectionsValue.textContent = connections;
+    if (revealed) {
+      els.scoreValue.textContent = 'REVEALED';
+      els.scoreValue.classList.remove('ww-over', 'ww-at-par');
+      els.scoreValue.classList.add('ww-revealed');
+      return;
+    }
+    els.scoreValue.classList.remove('ww-revealed');
     const over = connections - puzzle.par;
-    els.scoreValue.textContent = over <= 0 ? 'E' : '+' + over;
+    els.scoreValue.textContent = over <= 0 ? 'PERFECT' : '+' + over;
     els.scoreValue.classList.toggle('ww-over', over > 0);
     els.scoreValue.classList.toggle('ww-at-par', over <= 0 && connections > 0);
   }
 
   function checkSolved() {
+    if (revealed || solved) return;
     const targets = puzzle.targetIndices;
     const root0 = find(targets[0]);
     const allConnected = targets.every(function (t) { return find(t) === root0; });
-    if (allConnected && !solved) {
+    if (allConnected) {
       solved = true;
       graphView.markSolved();
       els.boardStatus.textContent = 'Solved! All three words are connected.';
       els.wordInput.disabled = true;
       els.wordSubmitBtn.disabled = true;
+      els.revealBtn.disabled = true;
       showSharePanel();
     }
   }
 
-  function showSharePanel() {
-    const over = Math.max(0, connections - puzzle.par);
-    const cells = [];
-    for (let i = 0; i < puzzle.par; i++) cells.push('gold');
-    for (let i = 0; i < over; i++) cells.push('red');
+  /**
+   * Adds every word from the optimal solution the player hadn't already
+   * found, styled distinctly (see .is-revealed in word-web.css) so it's
+   * clear which bubbles were theirs and which they were missing. Nothing
+   * already on the board is removed. A word needed by the optimal tree
+   * that bridges more than one existing branch attaches to all of them,
+   * same as live play.
+   */
+  function revealAnswer() {
+    if (solved || revealed) return;
+    const treeNodes = SteinerSolver.reconstructOptimalTreeK3(graph.adjacency, puzzle.targetIndices);
+    const remaining = treeNodes.filter(function (idx) { return !webIndices.has(idx); });
 
-    const title = isDaily ? 'Word Web #' + dayNumber : 'Word Web — Practice';
-    const stat = connections + ' connections \u00b7 ' + (over === 0 ? 'at par' : '+' + over + ' over par');
+    let guard = 0;
+    while (remaining.length && guard++ < 1000) {
+      let progressed = false;
+      for (let i = 0; i < remaining.length; i++) {
+        const idx = remaining[i];
+        const attach = findAttachPoints(idx);
+        if (attach.length > 0) {
+          commitNewWord(idx, graph.wordAt(idx), attach, true);
+          revealedWords.push(idx);
+          remaining.splice(i, 1);
+          progressed = true;
+          break;
+        }
+      }
+      if (!progressed) break; // shouldn't happen for a valid tree, but don't hang if it somehow does
+    }
+
+    revealed = true;
+    els.wordInput.disabled = true;
+    els.wordSubmitBtn.disabled = true;
+    els.revealBtn.disabled = true;
+    els.boardStatus.textContent = 'Answer revealed.';
+    updateStats();
+    showSharePanel();
+    persistState();
+  }
+
+  function showSharePanel() {
+    const title = 'Word Web #' + dayNumber;
+    let stat, cells;
+
+    if (revealed) {
+      // Cells show how far the player's own play got before giving up —
+      // gold for connections they actually made, dull for the rest of
+      // par's length — capped at par so a wild overshoot before giving
+      // up doesn't read as more filled-in than "This one beat me!" implies.
+      const foundCells = Math.min(connections, puzzle.par);
+      cells = [];
+      for (let i = 0; i < foundCells; i++) cells.push('gold');
+      for (let i = foundCells; i < puzzle.par; i++) cells.push('invalid');
+      stat = 'This one beat me!';
+    } else {
+      const over = Math.max(0, connections - puzzle.par);
+      cells = [];
+      for (let i = 0; i < puzzle.par; i++) cells.push('gold');
+      for (let i = 0; i < over; i++) cells.push('red');
+      stat = connections + ' connections \u00b7 ' + (over === 0 ? 'Perfect score' : '+' + over + ' over par');
+    }
 
     const canvas = RMLP.renderShareCard({ title: title, stat: stat, cells: cells, url: GAME_URL });
     els.shareCanvasWrap.innerHTML = '';
@@ -282,12 +417,17 @@
   }
 
   function wireStaticUI() {
-    els.newPuzzleBtn.addEventListener('click', loadPracticePuzzle);
     els.howToPlayBtn.addEventListener('click', function () { els.modal.hidden = false; });
     els.closeModalBtn.addEventListener('click', function () { els.modal.hidden = true; });
     els.modalGotItBtn.addEventListener('click', function () { els.modal.hidden = true; els.wordInput.focus(); });
     els.modal.addEventListener('click', function (e) { if (e.target === els.modal) els.modal.hidden = true; });
     els.wordForm.addEventListener('submit', handleSubmit);
+
+    els.revealBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = false; });
+    els.revealConfirmCloseBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; });
+    els.revealCancelBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; });
+    els.revealConfirmBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; revealAnswer(); });
+    els.revealConfirmModal.addEventListener('click', function (e) { if (e.target === els.revealConfirmModal) els.revealConfirmModal.hidden = true; });
   }
 
   async function init() {
@@ -296,10 +436,10 @@
     graph = await WordGraph.load('data/words.json');
     loadDailyPuzzle();
 
-    // First-time visitors see the instructions automatically.
-    if (!localStorage.getItem('ww-seen-instructions')) {
+    // First-time (or post-update) visitors see the instructions automatically.
+    if (!localStorage.getItem(INSTRUCTIONS_SEEN_KEY)) {
       els.modal.hidden = false;
-      try { localStorage.setItem('ww-seen-instructions', '1'); } catch (e) {}
+      try { localStorage.setItem(INSTRUCTIONS_SEEN_KEY, '1'); } catch (e) {}
     }
   }
 
