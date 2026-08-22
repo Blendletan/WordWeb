@@ -22,6 +22,31 @@
   const K = 3;
   const PAR_MIN = 5;
   const PAR_MAX = 8;
+  const GAME_URL = 'https://blendletan.github.io/WordWeb/';
+
+  // Daily puzzle: deterministic per the player's local calendar date, so
+  // everyone who opens the game on the same day gets the same puzzle —
+  // same approach Wordle uses (local date, not a fixed UTC rollover), so
+  // players in different timezones may roll over at different real-world
+  // moments. That's expected, not a bug.
+  //
+  // Day numbering counts from this constant. Move it if you want to
+  // renumber (e.g. back-date to when the game actually first went live).
+  const EPOCH_DATE = { year: 2026, month: 8, day: 21 }; // Day #1
+
+  function dateKey(d) {
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  }
+  function dateKeyToUTC(key) {
+    const y = Math.floor(key / 10000), m = Math.floor((key % 10000) / 100), day = key % 100;
+    return Date.UTC(y, m - 1, day);
+  }
+  function todayInfo() {
+    const key = dateKey(new Date());
+    const epochKey = EPOCH_DATE.year * 10000 + EPOCH_DATE.month * 100 + EPOCH_DATE.day;
+    const dayNumber = Math.round((dateKeyToUTC(key) - dateKeyToUTC(epochKey)) / 86400000) + 1;
+    return { seed: key, dayNumber: Math.max(1, dayNumber) };
+  }
 
   const els = {
     parValue: document.getElementById('par-value'),
@@ -43,7 +68,8 @@
     shareCopyTextBtn: document.getElementById('share-copy-text-btn'),
     shareDownloadBtn: document.getElementById('share-download-btn'),
     shareStatus: document.getElementById('share-status'),
-    boardStatus: document.getElementById('board-status')
+    boardStatus: document.getElementById('board-status'),
+    subtitle: document.getElementById('ww-subtitle')
   };
 
   const graphView = new GraphView('#graph-svg', { width: 640, height: 420, nodeRadius: 32 });
@@ -55,6 +81,8 @@
   let unionParent = new Map();
   let connections = 0;
   let solved = false;
+  let isDaily = true;
+  let dayNumber = null;
 
   function find(x) {
     while (unionParent.get(x) !== x) x = unionParent.get(x);
@@ -66,13 +94,25 @@
   }
   function edgeKey(a, b) { return a < b ? a + ':' + b : b + ':' + a; }
 
-  function newPuzzle() {
+  function loadDailyPuzzle() {
+    const info = todayInfo();
+    const result = PuzzleGenerator.generate(graph, { k: K, minPar: PAR_MIN, maxPar: PAR_MAX, maxAttempts: 3000, seed: info.seed });
+    startPuzzle(result, { daily: true, dayNumber: info.dayNumber });
+  }
+
+  function loadPracticePuzzle() {
     const result = PuzzleGenerator.generate(graph, { k: K, minPar: PAR_MIN, maxPar: PAR_MAX, maxAttempts: 3000 });
+    startPuzzle(result, { daily: false });
+  }
+
+  function startPuzzle(result, meta) {
     if (!result) {
-      els.boardStatus.textContent = 'Could not generate a puzzle — try New puzzle again.';
+      els.boardStatus.textContent = 'Could not generate a puzzle — try again.';
       return;
     }
     puzzle = result;
+    isDaily = meta.daily;
+    dayNumber = meta.dayNumber || null;
     webIndices = new Set();
     edgeSet = new Set();
     unionParent = new Map();
@@ -87,6 +127,9 @@
     els.wordSubmitBtn.disabled = false;
     els.wordInput.value = '';
     showFeedback('', null);
+    els.subtitle.textContent = isDaily
+      ? 'Day #' + dayNumber + ' — connect the words, one letter at a time.'
+      : 'Practice puzzle — connect the words, one letter at a time.';
 
     puzzle.targetIndices.forEach(function (idx) {
       webIndices.add(idx);
@@ -208,10 +251,10 @@
     for (let i = 0; i < puzzle.par; i++) cells.push('gold');
     for (let i = 0; i < over; i++) cells.push('red');
 
-    const title = 'Word Web';
+    const title = isDaily ? 'Word Web #' + dayNumber : 'Word Web — Practice';
     const stat = connections + ' connections \u00b7 ' + (over === 0 ? 'at par' : '+' + over + ' over par');
 
-    const canvas = RMLP.renderShareCard({ title: title, stat: stat, cells: cells });
+    const canvas = RMLP.renderShareCard({ title: title, stat: stat, cells: cells, url: GAME_URL });
     els.shareCanvasWrap.innerHTML = '';
     els.shareCanvasWrap.appendChild(canvas);
     els.sharePanel.hidden = false;
@@ -225,7 +268,7 @@
       }
     };
     els.shareCopyTextBtn.onclick = async function () {
-      const text = RMLP.shareCardText({ title: title, stat: stat, cells: cells });
+      const text = RMLP.shareCardText({ title: title, stat: stat, cells: cells, url: GAME_URL });
       try {
         await navigator.clipboard.writeText(text);
         els.shareStatus.textContent = 'Text copied to clipboard.';
@@ -239,7 +282,7 @@
   }
 
   function wireStaticUI() {
-    els.newPuzzleBtn.addEventListener('click', newPuzzle);
+    els.newPuzzleBtn.addEventListener('click', loadPracticePuzzle);
     els.howToPlayBtn.addEventListener('click', function () { els.modal.hidden = false; });
     els.closeModalBtn.addEventListener('click', function () { els.modal.hidden = true; });
     els.modalGotItBtn.addEventListener('click', function () { els.modal.hidden = true; els.wordInput.focus(); });
@@ -251,7 +294,7 @@
     wireStaticUI();
     els.boardStatus.textContent = 'Loading word graph\u2026';
     graph = await WordGraph.load('data/words.json');
-    newPuzzle();
+    loadDailyPuzzle();
 
     // First-time visitors see the instructions automatically.
     if (!localStorage.getItem('ww-seen-instructions')) {

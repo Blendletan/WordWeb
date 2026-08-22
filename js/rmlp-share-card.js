@@ -9,7 +9,8 @@
  *   const canvas = RMLP.renderShareCard({
  *     title: 'Word Web No. 1',
  *     stat: '6 words · +1 over par',
- *     cells: ['teal', 'teal', 'gold', 'red', 'rule', 'rule']
+ *     cells: ['teal', 'teal', 'gold', 'red', 'rule', 'rule'],
+ *     url: 'https://example.com/word-web/'   // optional — omit for no link
  *   });
  *   document.body.appendChild(canvas);
  *   RMLP.downloadShareCard(canvas, 'word-web-1.png');
@@ -18,9 +19,10 @@
  *   RMLP.shareCardText({
  *     title: 'Word Web No. 1',
  *     stat: '6 words · +1 over par',
- *     cells: ['teal', 'teal', 'gold', 'red', 'rule', 'rule']
+ *     cells: ['teal', 'teal', 'gold', 'red', 'rule', 'rule'],
+ *     url: 'https://example.com/word-web/'
  *   });
- *   // -> "Word Web No. 1\n6 words · +1 over par\n\uD83D\uDFE6\uD83D\uDFE6\uD83D\uDFE8\uD83D\uDFE5\u2B1C\u2B1C"
+ *   // -> "Word Web No. 1\n6 words · +1 over par\n\uD83D\uDFE6\uD83D\uDFE6\uD83D\uDFE8\uD83D\uDFE5\u2B1C\u2B1C\nhttps://example.com/word-web/"
  */
 const RMLP = (() => {
 
@@ -89,11 +91,13 @@ const RMLP = (() => {
    * @param {string} opts.title - e.g. 'Word Web No. 1'
    * @param {string} opts.stat - e.g. '6 words · +1 over par'
    * @param {string[]} opts.cells - color keys: 'red' | 'teal' | 'gold' | 'invalid' | 'rule'
+   * @param {string} [opts.url] - shown as a caption line under the cells; omit for none
    * @param {number} [opts.width=440]
    * @param {number} [opts.height=240]
    */
   function renderShareCard(opts) {
-    const { title, stat, cells = [], width = 440, height = 240 } = opts;
+    const { title, stat, cells = [], url, width = 440 } = opts;
+    const height = opts.height || (url ? 240 + 28 : 240);
     const colors = getColors();
 
     const canvas = document.createElement('canvas');
@@ -142,6 +146,13 @@ const RMLP = (() => {
       cx += cellSize + gap;
     });
 
+    // URL caption
+    if (url) {
+      ctx.fillStyle = colors.inkMuted;
+      ctx.font = "12px 'Courier Prime', 'Courier New', monospace";
+      ctx.fillText(url, pad + 20, cy + cellSize + 22);
+    }
+
     return canvas;
   }
 
@@ -169,9 +180,9 @@ const RMLP = (() => {
    * contexts where an image can't be shared (e.g. a plain text field).
    */
   function shareCardText(opts) {
-    const { title, stat, cells = [] } = opts;
+    const { title, stat, cells = [], url } = opts;
     const emojiLine = cells.map((key) => EMOJI[key] || EMOJI.rule).join('');
-    return `${title}\n${stat}\n${emojiLine}`;
+    return url ? `${title}\n${stat}\n${emojiLine}\n${url}` : `${title}\n${stat}\n${emojiLine}`;
   }
 
   return { renderShareCard, downloadShareCard, copyShareCardImage, shareCardText, getColors };

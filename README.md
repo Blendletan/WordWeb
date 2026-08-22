@@ -66,6 +66,29 @@ other's internals. A future game can reuse `lib/steiner.js` and
 `rmlp-share-card.js` outright, and reskinning this one is a `rmlp-tokens.css`
 edit, not a rewrite.
 
+## Daily puzzle
+
+The puzzle is deterministic per the player's **local calendar date** —
+same approach Wordle uses, so players in different timezones may roll
+over at different real-world moments. That's a known tradeoff of going
+local-date over a fixed UTC rollover, not a bug: it needs no backend,
+which fixed-rollover consistency would.
+
+Day numbering and the seed both come from `EPOCH_DATE` near the top of
+`js/app.js` — move that constant if you want to renumber (e.g. back-date
+to when the game actually first went live, rather than whenever this
+feature shipped).
+
+**Practice puzzle** (the header button) generates a genuine random puzzle,
+unseeded — deliberately separate from the daily one, and labeled as such
+in the UI and in the share card title, so a practice run never gets
+confused with "today's" shared puzzle.
+
+## Share link
+
+`GAME_URL` in `js/app.js` is the URL embedded in both the shareable image
+and the copy-text output. Update it there if the game ever moves.
+
 ## On the word list
 
 `data/words.json` was rebuilt from `/usr/share/dict/american-english`,
@@ -102,8 +125,8 @@ move at all) animate.
 
 ## Open items / not done here
 
-- **Daily puzzle mode.** The seeded generator is ready; this build still
-  calls it with no seed (fresh random puzzle each load), matching what was
-  asked for this pass.
 - **k=4 hard mode.** Only the k=3 standard puzzle is wired up.
 - **Word-list review.** Flagged above — worth your own look.
+- **Archive/back-catalog.** There's no way to play a past day's puzzle
+  right now — today's is the only one reachable.
+
