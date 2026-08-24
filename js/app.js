@@ -9,14 +9,25 @@
  * graph, and is it exactly one letter from something already in the web.
  * A submission can satisfy both and still connect to more than one existing
  * web word at once (if it happens to be adjacent to several) — all of those
- * connections are made, which is also how two separate branches of the web
- * end up merging into one.
+ * edges are made, which is also how two separate branches of the web end
+ * up merging into one. That's structural bookkeeping (edgeSet, union-find),
+ * not the score.
  *
- * Game state is a set of node indices in the web, a union-find over them
- * (to detect when all target words are connected), and a running count of
- * connections made. No undo — once a connection is made it's committed,
- * matching the golf-style par scoring. Revealing the answer is a separate
- * terminal state from solving, and doesn't count toward "connections" —
+ * The score is words added — submittedWords.length — compared against
+ * parWords (par re-expressed in words; see startPuzzle). Not an edge
+ * count: puzzle.par from the Steiner solver is edges, and a single bridging
+ * word can create two or three edges at once, which would make the score
+ * jump unpredictably relative to what the player actually typed. Words
+ * added is the number a player is actually watching climb by exactly 1
+ * per submission, and it's the one printed on the tin ("Word Web" — a
+ * word game). It also happens to always land on the identical final
+ * over/under-par verdict as edges would at the moment of solving, since
+ * the two differ by a fixed constant once the web is fully connected —
+ * but the live, mid-game number only behaves predictably in words.
+ *
+ * No undo — once a connection is made it's committed, matching the
+ * golf-style par scoring. Revealing the answer is a separate terminal
+ * state from solving and never adds to the player's own word count —
  * it's scored and shared distinctly ("Revealed" / "This one beat me!").
  */
 (function () {
@@ -55,7 +66,7 @@
 
   const els = {
     parValue: document.getElementById('par-value'),
-    connectionsValue: document.getElementById('connections-value'),
+    wordsValue: document.getElementById('words-value'),
     scoreValue: document.getElementById('score-value'),
     revealBtn: document.getElementById('reveal-btn'),
     howToPlayBtn: document.getElementById('how-to-play-btn'),
@@ -85,13 +96,13 @@
   let graph = null;
   let puzzle = null;
   let dayNumber = null;
+  let parWords = null;      // par expressed in words added, not raw Steiner-tree edges — see startPuzzle
   let webIndices = new Set();
   let edgeSet = new Set();
   let unionParent = new Map();
-  let connections = 0;      // the player's own connections only — reveal-adds never touch this
   let solved = false;
   let revealed = false;
-  let submittedWords = [];  // ordered word indices the player typed, for persistence/replay
+  let submittedWords = [];  // ordered word indices the player typed — this IS the score, .length is words added
   let revealedWords = [];   // ordered word indices added via Reveal Answer
 
   function find(x) {
@@ -148,9 +159,11 @@
 
   /**
    * Adds a word to the web and wires its edges. Shared by live
-   * submission, replay-on-load, and Reveal Answer — isRevealed controls
-   * only the visual style and whether it counts toward "connections"
-   * (revealed words never do; that stat reflects the player's own play).
+   * submission, replay-on-load, and Reveal Answer. Edge bookkeeping
+   * (edgeSet, union-find) is purely structural — it decides where things
+   * connect and when the puzzle is solved. The score itself is just
+   * submittedWords.length; see the "Score naming" note in the README for
+   * why that's the right unit and not an edge count.
    */
   function commitNewWord(idx, word, attachTo, isRevealed) {
     webIndices.add(idx);
@@ -159,7 +172,6 @@
       const key = edgeKey(idx, parentIdx);
       if (edgeSet.has(key)) return;
       edgeSet.add(key);
-      if (!isRevealed) connections++;
       if (i === 0) {
         graphView.addNode(idx, word, { isTarget: false, parentId: parentIdx, revealed: !!isRevealed });
       } else {
@@ -213,10 +225,13 @@
     }
     puzzle = result;
     dayNumber = dayNum;
+    // puzzle.par is edges in the optimal Steiner tree; a tree with that
+    // many edges has (par + 1) nodes total, of which K are the starting
+    // targets, so the minimum *words* needed is par - (K - 1).
+    parWords = puzzle.par - (K - 1);
     webIndices = new Set();
     edgeSet = new Set();
     unionParent = new Map();
-    connections = 0;
     solved = false;
     revealed = false;
     submittedWords = [];
@@ -296,8 +311,8 @@
   }
 
   function updateStats() {
-    els.parValue.textContent = puzzle.par;
-    els.connectionsValue.textContent = connections;
+    els.parValue.textContent = parWords;
+    els.wordsValue.textContent = submittedWords.length;
     if (revealed) {
       els.scoreValue.textContent = 'REVEALED';
       els.scoreValue.classList.remove('ww-over', 'ww-at-par');
@@ -305,10 +320,10 @@
       return;
     }
     els.scoreValue.classList.remove('ww-revealed');
-    const over = connections - puzzle.par;
+    const over = submittedWords.length - parWords;
     els.scoreValue.textContent = over <= 0 ? 'PERFECT' : '+' + over;
     els.scoreValue.classList.toggle('ww-over', over > 0);
-    els.scoreValue.classList.toggle('ww-at-par', over <= 0 && connections > 0);
+    els.scoreValue.classList.toggle('ww-at-par', over <= 0 && submittedWords.length > 0);
   }
 
   function checkSolved() {
@@ -369,24 +384,25 @@
 
   function showSharePanel() {
     const title = 'Word Web #' + dayNumber;
+    const wordsAdded = submittedWords.length;
     let stat, cells;
 
     if (revealed) {
       // Cells show how far the player's own play got before giving up —
-      // gold for connections they actually made, dull for the rest of
-      // par's length — capped at par so a wild overshoot before giving
-      // up doesn't read as more filled-in than "This one beat me!" implies.
-      const foundCells = Math.min(connections, puzzle.par);
+      // gold for words they actually found, dull for the rest of par's
+      // length — capped at par so a wild overshoot before giving up
+      // doesn't read as more filled-in than "This one beat me!" implies.
+      const foundCells = Math.min(wordsAdded, parWords);
       cells = [];
       for (let i = 0; i < foundCells; i++) cells.push('gold');
-      for (let i = foundCells; i < puzzle.par; i++) cells.push('invalid');
+      for (let i = foundCells; i < parWords; i++) cells.push('invalid');
       stat = 'This one beat me!';
     } else {
-      const over = Math.max(0, connections - puzzle.par);
+      const over = Math.max(0, wordsAdded - parWords);
       cells = [];
-      for (let i = 0; i < puzzle.par; i++) cells.push('gold');
+      for (let i = 0; i < parWords; i++) cells.push('gold');
       for (let i = 0; i < over; i++) cells.push('red');
-      stat = connections + ' connections \u00b7 ' + (over === 0 ? 'Perfect score' : '+' + over + ' over par');
+      stat = wordsAdded + ' words \u00b7 ' + (over === 0 ? 'Perfect score' : '+' + over + ' over par');
     }
 
     const canvas = RMLP.renderShareCard({ title: title, stat: stat, cells: cells, url: GAME_URL });

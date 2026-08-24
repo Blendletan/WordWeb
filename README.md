@@ -110,16 +110,36 @@ Dreyfus-Wagner backtrack instead of this shortcut.
 Revealing is scored and shared as its own state, not folded into the
 normal par comparison — see "Score naming" below.
 
-## Score naming
+## Score naming and units
 
 - Status chip: **Perfect** (matched par exactly) / **+N** (N over par) /
   **Revealed** (gave up).
 - Share text: **"Perfect score"** (full phrase, more room there) /
   **"+N over par"** / **"This one beat me!"**.
 - The revealed share card's row of cells shows how far the player's own
-  play got before giving up — gold for connections they actually made,
-  dull for the rest of par's length — rather than just being blank or a
-  flat "you lost" bar.
+  play got before giving up — gold for words they actually found, dull
+  for the rest of par's length — rather than just being blank or a flat
+  "you lost" bar.
+
+**Score is words added (`submittedWords.length`), not graph edges.** Par
+from the solver (`puzzle.par`) is an edge count; it gets converted once,
+in `startPuzzle`, to `parWords = puzzle.par - (K - 1)` — a tree with
+`par` edges has `par + 1` nodes, K of which are the starting targets. All
+display and share logic runs on `parWords` and `submittedWords.length`
+from there on; `puzzle.par` and `edgeSet` stay purely internal, used for
+attach-point/component bookkeeping and the Reveal Answer tree, never
+shown to the player.
+
+This wasn't just a rename. A single word that bridges two or three
+previously-separate branches at once creates two or three *edges* but is
+still exactly *one word* typed — scoring by edges would make that stat
+jump unpredictably relative to what the player just did. It doesn't
+change the final verdict (edges and words differ by a fixed constant once
+the web is fully connected, so "Perfect" vs "+N" comes out identical
+either way at the moment of solving — confirmed by simulation, not just
+worked out on paper), but the *live*, mid-game number only behaves the
+way a player would expect — climbing by exactly 1 per submission — when
+it's counting words.
 
 ## Share link
 
@@ -169,16 +189,20 @@ shrinks around them.
   exactly, and always includes all 3 targets.
 - 200+ generated puzzles were checked end-to-end: the optimal Steiner tree
   for each is reachable via the actual type-to-connect game mechanic in
-  exactly `par` connections, not just correct as an abstract number.
+  exactly `parWords` words, not just correct as an abstract number.
 - Reveal Answer was tested after partial play: it always completes the
   puzzle, never touches or removes a word the player had already found,
-  and the player's own "connections" count never gets inflated by the
-  words reveal adds.
+  and the player's own word count never gets inflated by the words
+  reveal adds.
 - The persist/replay path was tested by simulating a session, saving just
   the ordered word list, then rebuilding state against a freshly
   regenerated puzzle from that list alone — the rebuilt web, edge count,
-  and connections count all came out identical to the original session,
+  and words-added count all came out identical to the original session,
   across 10 trials.
+- The words-vs-edges equivalence at solve time (see "Score naming and
+  units" above) was checked against 40 solved games that included
+  deliberately wasted/inefficient detour moves and bridging, not just
+  optimal play — `edges === words + (K - 1)` held in every single trial.
 - Puzzle generation was seed-tested for determinism (same local date →
   same puzzle every time).
 
