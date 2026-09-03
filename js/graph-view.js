@@ -11,26 +11,32 @@
  * jiggle": the board briefly re-settles into the tighter layout, since
  * leaving already-placed bubbles pinned at their old (now oversized)
  * spacing would look broken once everything else shrinks around them.
+ *
+ * All bubble/thread visuals (gradients, shadows, ring, curve math) come
+ * from BubbleTheme (bubble-theme.js), shared with tutorial.js, so the live
+ * board and the tutorial slideshow are guaranteed to look alike — load
+ * bubble-theme.js before this file.
  */
 (function (root) {
   'use strict';
-
-  function tierForCount(count) {
-    if (count <= 10) return { radius: 32, font: 15 };
-    if (count <= 16) return { radius: 24, font: 12 };
-    return { radius: 18, font: 10 };
-  }
 
   function GraphView(svgSelector, options) {
     options = options || {};
     this.width = options.width || 720;
     this.height = options.height || 480;
-    this.nodeRadius = options.nodeRadius || 32;
-    this.fontSize = options.fontSize || 15;
+    this.idPrefix = options.idPrefix || 'ww';
+    this.solved = false;
+    this._batching = false;
+
+    var initialTier = BubbleTheme.tierForCount(0);
+    this.nodeRadius = initialTier.radius;
+    this.fontSize = initialTier.font;
 
     this.svg = d3.select(svgSelector)
       .attr('viewBox', '0 0 ' + this.width + ' ' + this.height)
       .attr('preserveAspectRatio', 'xMidYMid meet');
+
+    this.svg.append('defs').html(BubbleTheme.defsMarkup(this.idPrefix));
 
     this.rootGroup = this.svg.append('g').attr('class', 'ww-graph-root');
     this.linkLayer = this.rootGroup.append('g').attr('class', 'ww-links');
@@ -40,7 +46,7 @@
     this.links = [];
     this.nodeById = new Map();
 
-    const self = this;
+    var self = this;
     this.simulation = d3.forceSimulation(this.nodes)
       .force('link', d3.forceLink(this.links).id(function (d) { return d.id; }).distance(this.nodeRadius * 2.4).strength(0.9))
       .force('charge', d3.forceManyBody().strength(-170))
@@ -50,7 +56,7 @@
       // enough nodes can push some of them past the visible box over time,
       // not just at the moment they're first placed.
       .force('bounds', function () {
-        const r = self.nodeRadius;
+        var r = self.nodeRadius;
         self.nodes.forEach(function (n) {
           if (n.x < r) n.x = r;
           else if (n.x > self.width - r) n.x = self.width - r;
@@ -64,18 +70,45 @@
   }
 
   GraphView.prototype.reset = function () {
+    var initialTier = BubbleTheme.tierForCount(0);
     this.nodes = [];
     this.links = [];
     this.nodeById.clear();
+    this.solved = false;
+    this._batching = false;
+    this.nodeRadius = initialTier.radius;
+    this.fontSize = initialTier.font;
     this.simulation.nodes(this.nodes);
     this.simulation.force('link').links(this.links);
+    this.simulation.force('link').distance(this.nodeRadius * 2.4);
+    this.simulation.force('collide').radius(this.nodeRadius + 6);
     this.linkLayer.selectAll('*').remove();
     this.nodeLayer.selectAll('*').remove();
-    this.svg.classed('ww-solved', false);
   };
 
   GraphView.prototype._pinAll = function () {
     this.nodes.forEach(function (n) { n.fx = n.x; n.fy = n.y; });
+  };
+
+  /**
+   * Call before adding several nodes back-to-back (Reveal Answer, or
+   * replaying a saved session on load) so they can settle together as a
+   * group instead of each one freezing the previous ones in place before
+   * physics ever gets a chance to spread them apart. Without this, a
+   * burst of addNode() calls with no render in between (nothing paints
+   * between synchronous statements) pins each new node's neighbors at
+   * their raw, unsettled spawn position — visible overlap, not just
+   * tight spacing. Normal one-at-a-time play never hits this, since
+   * there's a real pause between each typed word.
+   */
+  GraphView.prototype.beginBatch = function () {
+    this._pinAll(); // freeze whatever already existed before this batch
+    this._batching = true;
+  };
+
+  GraphView.prototype.endBatch = function () {
+    this._batching = false;
+    this.simulation.alpha(0.8).restart();
   };
 
   /**
@@ -90,96 +123,132 @@
     opts = opts || {};
     if (this.nodeById.has(id)) return;
 
-    // Pin everything already on the board so reheating the simulation
-    // only moves the node we're about to add.
-    this._pinAll();
+    // Outside a batch, pin everything already on the board before adding
+    // this one node, so reheating only moves the new arrival. Inside a
+    // batch, beginBatch() already did this once for the pre-batch state —
+    // nodes added earlier in the same batch stay free so the whole group
+    // can settle together (see beginBatch's doc comment).
+    if (!this._batching) {
+      this._pinAll();
+    }
 
-    const newScale = tierForCount(this.nodes.length + 1);
-    const tierChanged = newScale.radius !== this.nodeRadius;
+    var newTier = BubbleTheme.tierForCount(this.nodes.length + 1);
+    var tierChanged = newTier.radius !== this.nodeRadius;
     if (tierChanged) {
-      // Board is about to get more crowded than the current bubble size
-      // can hold gracefully — let everything re-settle at the new size
-      // rather than leaving old bubbles pinned at spacing that no longer
-      // matches.
       this.nodes.forEach(function (n) { n.fx = null; n.fy = null; });
     }
-    this.nodeRadius = newScale.radius;
-    this.fontSize = newScale.font;
+    this.nodeRadius = newTier.radius;
+    this.fontSize = newTier.font;
     this.simulation.force('collide').radius(this.nodeRadius + 6);
     this.simulation.force('link').distance(this.nodeRadius * 2.4);
 
-    const parent = opts.parentId != null ? this.nodeById.get(opts.parentId) : null;
-    let x, y;
+    var parent = opts.parentId != null ? this.nodeById.get(opts.parentId) : null;
+    var x, y;
     if (parent) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 60 + Math.random() * 20;
+      var angle = Math.random() * Math.PI * 2;
+      var dist = 60 + Math.random() * 20;
       x = parent.x + Math.cos(angle) * dist;
       y = parent.y + Math.sin(angle) * dist;
     } else {
-      const rootCount = this.nodes.filter(function (n) { return n.isTarget; }).length;
-      const angle = (rootCount / 3) * Math.PI * 2 - Math.PI / 2;
-      x = this.width / 2 + Math.cos(angle) * 110;
-      y = this.height / 2 + Math.sin(angle) * 110;
+      var rootCount = this.nodes.filter(function (n) { return n.isTarget; }).length;
+      var rootAngle = (rootCount / 3) * Math.PI * 2 - Math.PI / 2;
+      x = this.width / 2 + Math.cos(rootAngle) * 110;
+      y = this.height / 2 + Math.sin(rootAngle) * 110;
     }
     x = Math.max(this.nodeRadius, Math.min(this.width - this.nodeRadius, x));
     y = Math.max(this.nodeRadius, Math.min(this.height - this.nodeRadius, y));
 
-    const node = { id: id, word: word, isTarget: !!opts.isTarget, revealed: !!opts.revealed, x: x, y: y };
+    var node = { id: id, word: word, isTarget: !!opts.isTarget, revealed: !!opts.revealed, x: x, y: y };
     this.nodes.push(node);
     this.nodeById.set(id, node);
 
     if (parent) {
-      this.links.push({ source: parent.id, target: node.id });
+      this.links.push({ source: parent.id, target: node.id, bowSide: Math.random() < 0.5 ? 1 : -1 });
     }
 
     this.simulation.nodes(this.nodes);
     this.simulation.force('link').links(this.links);
-    this.simulation.alpha(tierChanged ? 0.8 : 0.55).restart();
+
+    if (!this._batching) {
+      this.simulation.alpha(tierChanged ? 0.8 : 0.55).restart();
+    }
   };
 
   /**
    * Links two nodes that are both already on the board (e.g. when a new
    * connection merges two previously separate branches of the web).
-   * Both endpoints are already pinned, so this just draws the edge —
+   * Both endpoints are already pinned, so this just draws the thread —
    * nothing moves.
    */
   GraphView.prototype.addLinkBetweenExisting = function (aId, bId) {
     if (!this.nodeById.has(aId) || !this.nodeById.has(bId)) return;
-    this.links.push({ source: aId, target: bId });
+    this.links.push({ source: aId, target: bId, bowSide: Math.random() < 0.5 ? 1 : -1 });
     this.simulation.force('link').links(this.links);
     this._render();
   };
 
   GraphView.prototype.markSolved = function () {
-    this.svg.classed('ww-solved', true);
+    this.solved = true;
+    this._render();
   };
 
   GraphView.prototype._render = function () {
-    const link = this.linkLayer.selectAll('line.ww-link')
+    var self = this;
+    var idPrefix = this.idPrefix;
+
+    var link = this.linkLayer.selectAll('path.ww-link')
       .data(this.links, function (d) {
         return (d.source.id !== undefined ? d.source.id : d.source) + '-' + (d.target.id !== undefined ? d.target.id : d.target);
       });
-    link.enter().append('line').attr('class', 'ww-link').merge(link)
-      .attr('x1', function (d) { return d.source.x; })
-      .attr('y1', function (d) { return d.source.y; })
-      .attr('x2', function (d) { return d.target.x; })
-      .attr('y2', function (d) { return d.target.y; });
+    var linkEnter = link.enter().append('path').attr('class', 'ww-link').attr('fill', 'none');
+    linkEnter.merge(link)
+      .attr('d', function (d) { return BubbleTheme.edgePath(d.source.x, d.source.y, d.target.x, d.target.y, d.bowSide); })
+      .attr('stroke', self.solved ? '#C99A2E' : '#8A7355')
+      .attr('stroke-width', self.solved ? 2.5 : 2)
+      .attr('stroke-linecap', 'round');
     link.exit().remove();
 
-    const node = this.nodeLayer.selectAll('g.ww-node')
+    var node = this.nodeLayer.selectAll('g.ww-node')
       .data(this.nodes, function (d) { return d.id; });
 
-    const nodeEnter = node.enter().append('g').attr('class', 'ww-node');
-
+    var nodeEnter = node.enter().append('g').attr('class', 'ww-node');
+    nodeEnter.append('circle').attr('class', 'ww-node-ring').attr('fill', 'none');
     nodeEnter.append('circle').attr('class', 'ww-node-circle');
-    nodeEnter.append('text').attr('class', 'ww-node-label').text(function (d) { return d.word; });
+    nodeEnter.append('text')
+      .attr('class', 'ww-node-label')
+      .attr('text-anchor', 'middle')
+      .attr('font-family', "'Courier Prime',monospace")
+      .attr('font-weight', '700')
+      .attr('pointer-events', 'none')
+      .text(function (d) { return d.word; });
 
-    const merged = nodeEnter.merge(node);
-    merged.attr('transform', function (d) { return 'translate(' + d.x + ',' + d.y + ')'; })
-      .classed('is-target', function (d) { return d.isTarget; })
-      .classed('is-revealed', function (d) { return !!d.revealed; });
-    merged.select('circle.ww-node-circle').attr('r', this.nodeRadius);
-    merged.select('text.ww-node-label').style('font-size', this.fontSize + 'px');
+    var merged = nodeEnter.merge(node);
+    merged.attr('transform', function (d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+
+    merged.each(function (d) {
+      var g = d3.select(this);
+      var kind = d.revealed ? 'revealed' : (d.isTarget ? 'target' : 'normal');
+      var showRing = d.isTarget || self.solved;
+      var ringColor = self.solved ? '#C99A2E' : '#2A2018';
+      var ringRadius = self.nodeRadius + BubbleTheme.ringOffsetFor(self.nodeRadius);
+      var fontSize = BubbleTheme.fontSizeFor(self.nodeRadius);
+
+      g.select('circle.ww-node-ring')
+        .attr('r', ringRadius)
+        .attr('stroke', ringColor)
+        .attr('stroke-width', self.solved ? 1.5 : 1)
+        .attr('opacity', showRing ? (self.solved ? 1 : 0.3) : 0);
+
+      g.select('circle.ww-node-circle')
+        .attr('r', self.nodeRadius)
+        .attr('fill', 'url(#' + BubbleTheme.gradientIdFor(kind, idPrefix) + ')')
+        .attr('filter', 'url(#' + BubbleTheme.shadowIdFor(self.nodeRadius, idPrefix) + ')');
+
+      g.select('text.ww-node-label')
+        .attr('y', fontSize * 0.35)
+        .attr('font-size', fontSize)
+        .attr('fill', BubbleTheme.textFillFor(kind));
+    });
 
     node.exit().remove();
   };

@@ -20,33 +20,23 @@
 
   <header class="ww-header">
     <img class="ww-logo" src="assets/rmlp-logo-mark.svg" alt="">
-    <div class="ww-title-group">
-      <h1 class="ww-title">Word Web</h1>
-      <p class="ww-subtitle" id="ww-subtitle">Connect the words. Change one letter at a time.</p>
-    </div>
+    <h1 class="ww-wordmark">Word Web</h1>
     <div class="ww-header-actions">
-      <button class="ww-btn" id="how-to-play-btn" type="button">How to play</button>
-      <button class="ww-btn" id="reveal-btn" type="button">Reveal Answer</button>
+      <button class="ww-pill" id="how-to-play-btn" type="button">How to play</button>
+      <button class="ww-pill" id="reveal-btn" type="button" disabled>Reveal answer</button>
     </div>
   </header>
-
-  <div class="ww-status-bar">
-    <div class="ww-status-item">
-      <span class="ww-label">Par</span>
-      <span class="ww-status-value" id="par-value">–</span>
-    </div>
-    <div class="ww-status-item">
-      <span class="ww-label">Words</span>
-      <span class="ww-status-value" id="words-value">0</span>
-    </div>
-    <div class="ww-status-item">
-      <span class="ww-label">Score</span>
-      <span class="ww-status-value" id="score-value">–</span>
-    </div>
-  </div>
+  <p class="ww-hint" id="day-label"></p>
 
   <main class="ww-board">
-    <svg id="graph-svg" class="ww-graph" role="img" aria-label="Word web graph"></svg>
+    <svg id="graph-svg" class="ww-graph" role="img" aria-label="Word web graph" hidden></svg>
+    <div class="ww-board-loading" id="board-loading">
+      <svg viewBox="0 0 340 200" aria-hidden="true">
+        <circle class="ww-load-dot d1" cx="170" cy="45" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
+        <circle class="ww-load-dot d2" cx="80" cy="145" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
+        <circle class="ww-load-dot d3" cx="260" cy="145" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
+      </svg>
+    </div>
   </main>
   <p class="ww-hint" id="board-status" aria-live="polite"></p>
 
@@ -61,11 +51,18 @@
         autocomplete="off"
         autocapitalize="characters"
         spellcheck="false"
-        placeholder="Type a 5-letter word…">
-      <button class="ww-btn ww-btn-accent" id="word-submit-btn" type="submit">Add</button>
+        placeholder="Type a 5-letter word…"
+        disabled>
+      <button class="ww-btn ww-btn-accent" id="word-submit-btn" type="submit" disabled>Add</button>
     </form>
     <p class="ww-entry-feedback" id="entry-feedback" aria-live="polite"></p>
   </section>
+
+  <div class="ww-stats-row" id="stats-row" hidden>
+    <span class="ww-stat">perfect <b id="perfect-value">–</b></span>
+    <span class="ww-stat">par <b id="par-value">–</b></span>
+    <span class="ww-stat">words <b id="words-value">0</b></span>
+  </div>
 
   <section class="ww-share-panel" id="share-panel" hidden>
     <p class="ww-hint">Share your result</p>
@@ -79,25 +76,27 @@
   </section>
 
   <div class="ww-modal-backdrop" id="how-to-play-modal" hidden>
-    <div class="ww-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play-title">
+    <div class="ww-modal ww-tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play-title">
       <button class="ww-modal-close" id="close-modal-btn" type="button" aria-label="Close">&times;</button>
-      <h2 class="ww-modal-title" id="how-to-play-title">How to play</h2>
-      <ol>
-        <li>You start with <strong>3 words</strong> in your web, not connected to each other yet.</li>
-        <li>Type any real 5-letter word that's just <strong>one letter different</strong> from a word already in your web, then press <strong>Add</strong> (or hit Enter).</li>
-        <li>If it's not a word we know, or it's not one letter from anything in your web yet, you'll be told which — fix it and try again.</li>
-        <li>Keep going until all <strong>3 starting words</strong> are linked into a single web. There's no list to pick from — figuring out a word that fits is the game.</li>
-        <li>The fewer extra words you need, the better your score. <strong>Par</strong> is the fewest possible — matching it is a Perfect score, and there's no going back once a word is placed.</li>
-        <li>There's one puzzle a day. Stuck? <strong>Reveal Answer</strong> shows the solution — but it ends today's puzzle, and there's no trying again until tomorrow's.</li>
-      </ol>
-      <div class="ww-example">
-        <p class="ww-example-title">A worked example</p>
-        <p>Say your 3 words are <strong>HOUSE</strong>, <strong>GOOSE</strong>, and <strong>WORSE</strong>. One way to connect them:</p>
-        <p class="ww-chain">HOUSE → <span class="ww-changed">H</span>ORSE → W<span class="ww-changed">O</span>RSE</p>
-        <p class="ww-chain">HOUSE → M<span class="ww-changed">O</span>USE → MO<span class="ww-changed">O</span>SE → G<span class="ww-changed">O</span>OSE</p>
-        <p>Each arrow changes exactly one letter. That's 5 extra words in total — Word Web will tell you the real par for your puzzle, which might beat that.</p>
+      <h2 class="sr-only" id="how-to-play-title">How to play Word Web</h2>
+
+      <div id="tutorial-caption" class="ww-tutorial-caption"></div>
+
+      <div class="ww-tutorial-board">
+        <svg id="tutorial-svg" viewBox="0 0 360 270" role="img" aria-label="Tutorial example board"></svg>
       </div>
-      <button class="ww-btn ww-btn-accent" id="modal-got-it-btn" type="button">Got it, let's play</button>
+
+      <div class="ww-stats-row">
+        <span class="ww-stat">perfect <b id="tutorial-perfect">4</b></span>
+        <span class="ww-stat">par <b id="tutorial-par">7</b></span>
+        <span class="ww-stat">words <b id="tutorial-words">0</b></span>
+      </div>
+
+      <div class="ww-tutorial-controls">
+        <button class="ww-btn" id="tutorial-prev-btn" type="button">Back</button>
+        <div class="ww-tutorial-dots" id="tutorial-dots"></div>
+        <button class="ww-btn ww-btn-accent" id="tutorial-next-btn" type="button">Next</button>
+      </div>
     </div>
   </div>
 
@@ -124,7 +123,9 @@
 <script src="js/lib/steiner.js"></script>
 <script src="js/lib/puzzle-generator.js"></script>
 <script src="js/rmlp-share-card.js"></script>
+<script src="js/bubble-theme.js"></script>
 <script src="js/graph-view.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/app.js"></script>
 <script data-goatcounter="https://blendletan.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>

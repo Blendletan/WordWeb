@@ -1,6 +1,10 @@
 /* Word Web — game styles.
    Everything here reads from --rmlp-* custom properties (see rmlp-tokens.css).
-   To reskin the game, edit rmlp-tokens.css — this file shouldn't need to change. */
+   To reskin the game, edit rmlp-tokens.css — this file shouldn't need to change.
+   Node/thread/bubble colors are NOT here — they're set directly by
+   graph-view.js and tutorial.js via BubbleTheme (bubble-theme.js), since
+   both need to compute them dynamically (tier size, solved state, revealed
+   state). This file only covers static page chrome. */
 
 * { box-sizing: border-box; }
 
@@ -28,36 +32,33 @@ body {
   padding: var(--rmlp-space-4) var(--rmlp-space-4) var(--rmlp-space-8);
 }
 
-/* Header */
+/* Header — deliberately minimal: a small mark, the wordmark, two quiet
+   pills. No border, no title fight with the board below it. */
 .ww-header {
   display: flex;
   align-items: center;
-  gap: var(--rmlp-space-3);
+  gap: var(--rmlp-space-2);
   flex-wrap: wrap;
-  padding: var(--rmlp-space-4) 0;
-  border-bottom: 1px solid var(--rmlp-rule);
-  margin-bottom: var(--rmlp-space-4);
+  padding: var(--rmlp-space-3) 0;
 }
 
-.ww-logo { width: 40px; height: 40px; flex-shrink: 0; }
+.ww-logo { width: 28px; height: 28px; flex-shrink: 0; }
 
-.ww-title-group { flex: 1; min-width: 160px; }
-
-.ww-title {
+.ww-wordmark {
   font-family: var(--rmlp-font-display);
   font-weight: 700;
-  font-size: var(--rmlp-text-xl);
+  font-size: var(--rmlp-text-lg);
   margin: 0;
-  line-height: 1.1;
+  color: var(--rmlp-ink);
 }
 
-.ww-subtitle {
+.ww-header-actions { display: flex; gap: var(--rmlp-space-2); margin-left: auto; }
+
+.ww-hint {
   font-size: var(--rmlp-text-sm);
   color: var(--rmlp-ink-muted);
-  margin: 2px 0 0;
+  margin: 0 0 var(--rmlp-space-2);
 }
-
-.ww-header-actions { display: flex; gap: var(--rmlp-space-2); }
 
 /* Buttons */
 .ww-btn {
@@ -75,6 +76,7 @@ body {
 .ww-btn:hover { background: var(--rmlp-paper); }
 .ww-btn:active { transform: translateY(1px); }
 .ww-btn:focus-visible { outline: 2px solid var(--rmlp-accent-teal); outline-offset: 2px; }
+.ww-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .ww-btn-accent {
   background: var(--rmlp-accent-red);
@@ -83,41 +85,27 @@ body {
 }
 .ww-btn-accent:hover { background: #a83621; }
 
-/* Status bar */
-.ww-status-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--rmlp-space-6);
-  flex-wrap: wrap;
+/* Header pills — quiet, small, secondary to everything below them */
+.ww-pill {
+  font-family: var(--rmlp-font-ui);
+  font-weight: 600;
+  font-size: var(--rmlp-text-xs);
+  color: var(--rmlp-ink-muted);
   background: var(--rmlp-paper-raised);
   border: 1px solid var(--rmlp-rule);
-  border-radius: var(--rmlp-radius-lg);
-  padding: var(--rmlp-space-3) var(--rmlp-space-4);
-  margin-bottom: var(--rmlp-space-4);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
 }
+.ww-pill:hover { background: var(--rmlp-paper); }
+.ww-pill:disabled { opacity: 0.4; cursor: not-allowed; }
+.ww-pill:focus-visible { outline: 2px solid var(--rmlp-accent-teal); outline-offset: 2px; }
 
-.ww-status-item { display: flex; flex-direction: column; gap: 2px; }
-
-.ww-label {
-  font-family: var(--rmlp-font-mono);
-  font-size: var(--rmlp-text-xs);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--rmlp-ink-muted);
-}
-
-.ww-status-value {
-  font-family: var(--rmlp-font-display);
-  font-weight: 700;
-  font-size: var(--rmlp-text-lg);
-}
-
-.ww-status-value.ww-over { color: var(--rmlp-accent-red); }
-.ww-status-value.ww-at-par { color: var(--rmlp-accent-gold); }
-.ww-status-value.ww-revealed { color: var(--rmlp-invalid); }
-
-/* Board */
+/* Board — the hero. First thing on the page after the header. */
 .ww-board {
+  position: relative;
   background: var(--rmlp-paper-raised);
   border: 1px solid var(--rmlp-rule);
   border-radius: var(--rmlp-radius-lg);
@@ -127,50 +115,18 @@ body {
 
 .ww-graph { width: 100%; height: auto; display: block; }
 
-.ww-link {
-  stroke: var(--rmlp-rule);
-  stroke-width: 2px;
-}
-.ww-solved .ww-link { stroke: var(--rmlp-accent-gold); }
+/* Loading state — pulsing dashed outlines foreshadowing the real bubbles,
+   shown until the daily puzzle finishes generating. */
+.ww-board-loading { padding: var(--rmlp-space-3); }
+.ww-board-loading svg { width: 100%; height: auto; display: block; }
+.ww-board-loading[hidden] { display: none; }
 
-.ww-node-circle {
-  fill: var(--rmlp-paper-raised);
-  stroke: var(--rmlp-ink-muted);
-  stroke-width: 1.5px;
-}
-.ww-node.is-target .ww-node-circle {
-  fill: var(--rmlp-accent-teal);
-  stroke: var(--rmlp-accent-teal);
-}
-.ww-node.is-revealed .ww-node-circle {
-  fill: var(--rmlp-invalid);
-  stroke: var(--rmlp-invalid);
-}
-.ww-solved .ww-node.is-target .ww-node-circle,
-.ww-solved .ww-node:not(.is-target) .ww-node-circle {
-  stroke: var(--rmlp-accent-gold);
-}
+@keyframes wwPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+.ww-load-dot { animation: wwPulse 2s ease-in-out infinite; }
+.ww-load-dot.d2 { animation-delay: 0.45s; }
+.ww-load-dot.d3 { animation-delay: 0.9s; }
 
-.ww-node-label {
-  font-family: var(--rmlp-font-mono);
-  font-weight: 700;
-  font-size: 15px;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  fill: var(--rmlp-ink);
-  pointer-events: none;
-  text-transform: uppercase;
-}
-.ww-node.is-target .ww-node-label,
-.ww-node.is-revealed .ww-node-label { fill: var(--rmlp-paper); }
-
-.ww-hint {
-  font-size: var(--rmlp-text-sm);
-  color: var(--rmlp-ink-muted);
-  margin: 0 0 var(--rmlp-space-2);
-}
-
-/* Word entry */
+/* Word entry — the primary interaction */
 .ww-entry {
   background: var(--rmlp-paper-raised);
   border: 1px solid var(--rmlp-rule);
@@ -207,9 +163,7 @@ body {
   outline: 2px solid var(--rmlp-accent-teal);
   outline-offset: 1px;
 }
-.ww-word-input:disabled {
-  opacity: 0.6;
-}
+.ww-word-input:disabled { opacity: 0.6; }
 
 .ww-entry-feedback {
   font-size: var(--rmlp-text-sm);
@@ -220,7 +174,27 @@ body {
 .ww-entry-feedback.is-error { color: var(--rmlp-invalid); }
 .ww-entry-feedback.is-success { color: var(--rmlp-accent-teal); }
 
-/* Modal */
+/* Stats — quiet, unbordered, comes after the board and entry field, not
+   before them. Shared between the live page and the tutorial modal. */
+.ww-stats-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-family: var(--rmlp-font-mono);
+  font-size: var(--rmlp-text-sm);
+  color: var(--rmlp-ink-muted);
+  margin: var(--rmlp-space-3) 0 var(--rmlp-space-4);
+}
+.ww-stats-row[hidden] { display: none; }
+.ww-stat b {
+  color: var(--rmlp-ink);
+  font-weight: 700;
+  font-size: var(--rmlp-text-lg);
+  margin-left: 4px;
+}
+
+/* Modal (shared base for how-to-play and reveal-confirm) */
 .ww-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -264,39 +238,6 @@ body {
   margin: 0 0 var(--rmlp-space-3);
 }
 
-.ww-modal ol {
-  padding-left: 1.2em;
-  line-height: 1.6;
-}
-.ww-modal li { margin-bottom: var(--rmlp-space-2); }
-
-.ww-example {
-  background: var(--rmlp-paper-raised);
-  border: 1px solid var(--rmlp-rule);
-  border-radius: var(--rmlp-radius-md);
-  padding: var(--rmlp-space-3) var(--rmlp-space-4);
-  margin: var(--rmlp-space-4) 0;
-  font-size: var(--rmlp-text-sm);
-}
-.ww-example-title {
-  font-family: var(--rmlp-font-mono);
-  font-size: var(--rmlp-text-xs);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--rmlp-ink-muted);
-  margin: 0 0 var(--rmlp-space-2);
-}
-.ww-chain {
-  font-family: var(--rmlp-font-mono);
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-.ww-chain .ww-changed { color: var(--rmlp-accent-red); }
-.ww-example p { margin: var(--rmlp-space-2) 0 0; color: var(--rmlp-ink-muted); }
-
-.ww-modal .ww-btn-accent { display: block; margin: var(--rmlp-space-4) auto 0; }
-
 .ww-modal-actions {
   display: flex;
   gap: var(--rmlp-space-2);
@@ -304,6 +245,32 @@ body {
   margin-top: var(--rmlp-space-4);
 }
 .ww-modal-actions .ww-btn { margin: 0; }
+
+/* Tutorial slideshow */
+.ww-tutorial-caption {
+  font-size: var(--rmlp-text-base);
+  line-height: 1.5;
+  color: var(--rmlp-ink);
+  min-height: 44px;
+  margin: 0 var(--rmlp-space-5, 28px) var(--rmlp-space-3) 0;
+}
+
+.ww-tutorial-board {
+  background: var(--rmlp-paper-raised);
+  border: 1px solid var(--rmlp-rule);
+  border-radius: var(--rmlp-radius-md);
+  padding: var(--rmlp-space-3);
+  margin-bottom: var(--rmlp-space-2);
+}
+.ww-tutorial-board svg { width: 100%; height: auto; display: block; }
+
+.ww-tutorial-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--rmlp-space-4);
+}
+.ww-tutorial-dots { display: flex; gap: 6px; }
 
 /* Footer */
 .ww-footer {
@@ -329,5 +296,5 @@ body {
 .ww-share-status { font-size: var(--rmlp-text-xs); color: var(--rmlp-ink-muted); margin-top: var(--rmlp-space-2); min-height: 1.2em; }
 
 @media (max-width: 480px) {
-  .ww-status-bar { gap: var(--rmlp-space-3); }
+  .ww-stats-row { gap: var(--rmlp-space-4); }
 }

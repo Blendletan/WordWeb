@@ -24,6 +24,7 @@
  *   });
  *   // -> "Word Web No. 1\n6 words · +1 over par\n\uD83D\uDFE6\uD83D\uDFE6\uD83D\uDFE8\uD83D\uDFE5\u2B1C\u2B1C\nhttps://example.com/word-web/"
  */
+(function (root) {
 const RMLP = (() => {
 
   // Fallback palette — kept in sync with rmlp-tokens.css. If tokens.css is
@@ -92,12 +93,14 @@ const RMLP = (() => {
    * @param {string} opts.stat - e.g. '6 words · +1 over par'
    * @param {string[]} opts.cells - color keys: 'red' | 'teal' | 'gold' | 'invalid' | 'rule'
    * @param {string} [opts.url] - shown as a caption line under the cells; omit for none
+   * @param {string} [opts.accent] - hex color for a thin top accent strip (e.g. a failure-state cue); omit for none
    * @param {number} [opts.width=440]
    * @param {number} [opts.height=240]
    */
   function renderShareCard(opts) {
-    const { title, stat, cells = [], url, width = 440 } = opts;
-    const height = opts.height || (url ? 240 + 28 : 240);
+    const { title, stat, cells = [], url, accent, width = 440 } = opts;
+    const hasCells = cells.length > 0;
+    const height = opts.height || (hasCells ? (url ? 268 : 240) : (url ? 130 : 100));
     const colors = getColors();
 
     const canvas = document.createElement('canvas');
@@ -123,15 +126,23 @@ const RMLP = (() => {
     ctx.lineWidth = 1;
     ctx.stroke();
 
+    // Optional accent strip along the top of the panel
+    if (accent) {
+      roundRect(ctx, pad, pad, width - pad * 2, 6, 3);
+      ctx.fillStyle = accent;
+      ctx.fill();
+    }
+
     // Title
     ctx.fillStyle = colors.ink;
     ctx.font = "700 20px Fraunces, Georgia, serif";
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(title, pad + 20, pad + 38);
 
-    // Stat line
-    ctx.fillStyle = colors.inkMuted;
-    ctx.font = "13px 'Courier Prime', 'Courier New', monospace";
+    // Stat line — bold and in the accent color when one's set (e.g. the
+    // failure state), otherwise the normal muted tone
+    ctx.fillStyle = accent || colors.inkMuted;
+    ctx.font = (accent ? "700 " : "") + "13px 'Courier Prime', 'Courier New', monospace";
     ctx.fillText(stat, pad + 20, pad + 60);
 
     // Result cells
@@ -139,18 +150,22 @@ const RMLP = (() => {
     const gap = 6;
     let cx = pad + 20;
     const cy = pad + 82;
-    cells.forEach((key) => {
-      ctx.fillStyle = colors[key] || colors.rule;
-      roundRect(ctx, cx, cy, cellSize, cellSize, 3);
-      ctx.fill();
-      cx += cellSize + gap;
-    });
+    if (hasCells) {
+      cells.forEach((key) => {
+        ctx.fillStyle = colors[key] || colors.rule;
+        roundRect(ctx, cx, cy, cellSize, cellSize, 3);
+        ctx.fill();
+        cx += cellSize + gap;
+      });
+    }
 
-    // URL caption
+    // URL caption — sits right under the cells if there are any, otherwise
+    // right under the stat line
     if (url) {
+      const urlY = hasCells ? cy + cellSize + 22 : pad + 60 + 24;
       ctx.fillStyle = colors.inkMuted;
       ctx.font = "12px 'Courier Prime', 'Courier New', monospace";
-      ctx.fillText(url, pad + 20, cy + cellSize + 22);
+      ctx.fillText(url, pad + 20, urlY);
     }
 
     return canvas;
@@ -182,8 +197,11 @@ const RMLP = (() => {
   function shareCardText(opts) {
     const { title, stat, cells = [], url } = opts;
     const emojiLine = cells.map((key) => EMOJI[key] || EMOJI.rule).join('');
-    return url ? `${title}\n${stat}\n${emojiLine}\n${url}` : `${title}\n${stat}\n${emojiLine}`;
+    const lines = [title, stat, emojiLine, url].filter((line) => !!line);
+    return lines.join('\n');
   }
 
   return { renderShareCard, downloadShareCard, copyShareCardImage, shareCardText, getColors };
 })();
+root.RMLP = RMLP;
+})(typeof window !== 'undefined' ? window : globalThis);
