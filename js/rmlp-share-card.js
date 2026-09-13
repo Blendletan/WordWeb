@@ -1,7 +1,7 @@
 /**
  * RMLP Share Card
- * Reusable shareable-result rendering for RMLP word puzzle games.
- * Produces (a) a canvas-based image card and (b) a paste-anywhere emoji-text
+ * Reusable result rendering for RMLP word puzzle games.
+ * Produces (a) a canvas preview card and (b) a paste-anywhere emoji-text
  * string, both driven by the same semantic cell colors so every game's
  * results look and read like they belong to the same family.
  *
@@ -13,8 +13,6 @@
  *     url: 'https://example.com/word-web/'   // optional — omit for no link
  *   });
  *   document.body.appendChild(canvas);
- *   RMLP.downloadShareCard(canvas, 'word-web-1.png');
- *   RMLP.copyShareCardImage(canvas);
  *
  *   RMLP.shareCardText({
  *     title: 'Word Web No. 1',
@@ -171,28 +169,9 @@ const RMLP = (() => {
     return canvas;
   }
 
-  function downloadShareCard(canvas, filename = 'share-card.png') {
-    canvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  async function copyShareCardImage(canvas) {
-    if (!navigator.clipboard || !window.ClipboardItem) {
-      throw new Error('Clipboard image copy is not supported in this browser.');
-    }
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve));
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-  }
-
   /**
    * Produces a paste-anywhere text version of the same result, for
-   * contexts where an image can't be shared (e.g. a plain text field).
+   * sharing in messages, posts, or any other plain-text context.
    */
   function shareCardText(opts) {
     const { title, stat, cells = [], url } = opts;
@@ -201,7 +180,7 @@ const RMLP = (() => {
     return lines.join('\n');
   }
 
-  return { renderShareCard, downloadShareCard, copyShareCardImage, shareCardText, getColors };
+  return { renderShareCard, shareCardText, getColors };
 })();
 root.RMLP = RMLP;
 })(typeof window !== 'undefined' ? window : globalThis);

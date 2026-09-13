@@ -63,7 +63,8 @@
 
   var current = 0;
   var initialized = false;
-  var edgesEl, nodesEl, captionEl, wordsEl, dotsEl, prevBtn, nextBtn, modalEl;
+  var closeHandler = null;
+  var edgesEl, nodesEl, captionEl, wordsEl, dotsEl, prevBtn, nextBtn;
 
   function edgePathFor(edgeDef) {
     var a = NODES[edgeDef.a], b = NODES[edgeDef.b];
@@ -114,7 +115,7 @@
       current++;
       render();
     } else {
-      modalEl.hidden = true;
+      if (closeHandler) closeHandler();
     }
   }
 
@@ -137,7 +138,6 @@
     dotsEl = document.getElementById('tutorial-dots');
     prevBtn = document.getElementById('tutorial-prev-btn');
     nextBtn = document.getElementById('tutorial-next-btn');
-    modalEl = document.getElementById('how-to-play-modal');
 
     dotsEl.innerHTML = '';
     for (var d = 0; d < STEPS.length; d++) {
@@ -160,5 +160,9 @@
     render();
   }
 
-  window.Tutorial = { reset: reset };
+  function setCloseHandler(handler) {
+    closeHandler = handler;
+  }
+
+  window.Tutorial = { reset: reset, setCloseHandler: setCloseHandler };
 })();
