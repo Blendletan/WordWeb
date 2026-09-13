@@ -68,12 +68,30 @@
     <p class="ww-hint">Share your result</p>
     <div id="share-canvas-wrap"></div>
     <div class="ww-share-actions">
-      <button class="ww-btn" id="share-copy-image-btn" type="button">Copy image</button>
-      <button class="ww-btn" id="share-copy-text-btn" type="button">Copy text</button>
-      <button class="ww-btn" id="share-download-btn" type="button">Download</button>
+      <button class="ww-btn ww-btn-accent" id="share-result-btn" type="button">Share result</button>
     </div>
-    <p class="ww-share-status" id="share-status"></p>
+    <p class="ww-share-status" id="share-status" aria-live="polite"></p>
+    <div class="ww-share-manual" id="share-manual-copy" hidden>
+      <label for="share-manual-text">Copy your result manually</label>
+      <textarea class="ww-share-manual-text" id="share-manual-text" rows="5" readonly></textarea>
+    </div>
   </section>
+
+  <div class="ww-modal-backdrop" id="completion-modal" hidden>
+    <div class="ww-modal ww-completion-modal" role="dialog" aria-modal="true" aria-labelledby="completion-modal-title" aria-describedby="completion-modal-stat">
+      <button class="ww-modal-close" id="completion-modal-close-btn" type="button" aria-label="Close">&times;</button>
+      <h2 class="ww-modal-title" id="completion-modal-title"></h2>
+      <p class="ww-completion-stat" id="completion-modal-stat"></p>
+      <div class="ww-share-actions">
+        <button class="ww-btn ww-btn-accent" id="completion-share-result-btn" type="button">Share result</button>
+      </div>
+      <p class="ww-share-status" id="completion-share-status" aria-live="polite"></p>
+      <div class="ww-share-manual" id="completion-share-manual-copy" hidden>
+        <label for="completion-share-manual-text">Copy your result manually</label>
+        <textarea class="ww-share-manual-text" id="completion-share-manual-text" rows="5" readonly></textarea>
+      </div>
+    </div>
+  </div>
 
   <div class="ww-modal-backdrop" id="how-to-play-modal" hidden>
     <div class="ww-modal ww-tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play-title">
@@ -115,9 +133,14 @@
 </div>
 
 <footer class="ww-footer">
-  Questions or concerns? <a href="mailto:robertparkinson@shaw.ca">robertparkinson@shaw.ca</a>
-  <br>
-  Enjoyed WordWeb? Support more puzzles ☕ <a href = https://www.paypal.com/paypalme/AceBlender?>Support me </a>
+  <nav class="ww-footer-links" aria-label="Word Web links">
+    <a class="ww-footer-link" id="feedback-link" href="mailto:robertparkinson@shaw.ca">Send feedback</a>
+    <a class="ww-footer-link ww-listdle-link" id="listdle-link" href="https://listdle.com/games/word-web" target="_blank" rel="noopener noreferrer">
+      <img class="ww-listdle-badge" src="https://listdle.com/badges/rate-on-listdle-light.svg" alt="Rate on Listdle">
+    </a>
+    <a class="ww-footer-link" id="more-puzzles-link" href="https://blendletan.github.io/SpellSweep/" target="_blank" rel="noopener noreferrer">More puzzles: SpellSweep</a>
+    <a class="ww-footer-link" id="support-link" href="https://www.paypal.com/paypalme/AceBlender" target="_blank" rel="noopener noreferrer">Support more puzzles &#9749;</a>
+  </nav>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>

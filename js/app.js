@@ -62,6 +62,8 @@
   }
 
   var els = {
+    appRoot: document.querySelector('.ww-app'),
+    footer: document.querySelector('.ww-footer'),
     perfectValue: document.getElementById('perfect-value'),
     parValue: document.getElementById('par-value'),
     wordsValue: document.getElementById('words-value'),
@@ -80,14 +82,26 @@
     revealConfirmBtn: document.getElementById('reveal-confirm-btn'),
     sharePanel: document.getElementById('share-panel'),
     shareCanvasWrap: document.getElementById('share-canvas-wrap'),
-    shareCopyImageBtn: document.getElementById('share-copy-image-btn'),
-    shareCopyTextBtn: document.getElementById('share-copy-text-btn'),
-    shareDownloadBtn: document.getElementById('share-download-btn'),
+    shareResultBtn: document.getElementById('share-result-btn'),
     shareStatus: document.getElementById('share-status'),
+    shareManualCopy: document.getElementById('share-manual-copy'),
+    shareManualText: document.getElementById('share-manual-text'),
+    completionModal: document.getElementById('completion-modal'),
+    completionModalCloseBtn: document.getElementById('completion-modal-close-btn'),
+    completionModalTitle: document.getElementById('completion-modal-title'),
+    completionModalStat: document.getElementById('completion-modal-stat'),
+    completionShareResultBtn: document.getElementById('completion-share-result-btn'),
+    completionShareStatus: document.getElementById('completion-share-status'),
+    completionShareManualCopy: document.getElementById('completion-share-manual-copy'),
+    completionShareManualText: document.getElementById('completion-share-manual-text'),
     boardStatus: document.getElementById('board-status'),
     boardLoading: document.getElementById('board-loading'),
     graphSvg: document.getElementById('graph-svg'),
-    dayLabel: document.getElementById('day-label')
+    dayLabel: document.getElementById('day-label'),
+    feedbackLink: document.getElementById('feedback-link'),
+    listdleLink: document.getElementById('listdle-link'),
+    morePuzzlesLink: document.getElementById('more-puzzles-link'),
+    supportLink: document.getElementById('support-link')
   };
 
   var graphView = new GraphView('#graph-svg', { width: 720, height: 480 });
@@ -104,6 +118,11 @@
   var revealed = false;
   var submittedWords = [];
   var revealedWords = [];
+  var shareResultData = null;
+  var shareResultText = '';
+  var activeDialog = null;
+  var activeDialogReturnFocus = null;
+  var modalInertElements = [];
 
   function find(x) {
     while (unionParent.get(x) !== x) x = unionParent.get(x);
@@ -114,6 +133,119 @@
     if (ra !== rb) unionParent.set(ra, rb);
   }
   function edgeKey(a, b) { return a < b ? a + ':' + b : b + ':' + a; }
+
+  function trackEvent(eventName) {
+    try {
+      if (window.goatcounter && typeof window.goatcounter.count === 'function') {
+        window.goatcounter.count({
+          path: eventName,
+          title: 'Word Web: ' + eventName,
+          event: true
+        });
+      }
+    } catch (e) { /* Analytics must never interrupt gameplay or navigation. */ }
+  }
+
+  function getFocusableElements(modal) {
+    var selector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+      'textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+    return Array.prototype.filter.call(modal.querySelectorAll(selector), function (element) {
+      var style = window.getComputedStyle(element);
+      return !element.closest('[hidden]') && style.display !== 'none' && style.visibility !== 'hidden';
+    });
+  }
+
+  function lockModalBackground(modal) {
+    var backgroundElements = Array.prototype.slice.call(els.appRoot.children);
+    if (els.footer) backgroundElements.push(els.footer);
+    modalInertElements = backgroundElements.filter(function (element) {
+      return element !== modal && !element.hasAttribute('inert');
+    });
+    modalInertElements.forEach(function (element) { element.setAttribute('inert', ''); });
+    document.body.classList.add('ww-modal-open');
+  }
+
+  function unlockModalBackground() {
+    modalInertElements.forEach(function (element) { element.removeAttribute('inert'); });
+    modalInertElements = [];
+    document.body.classList.remove('ww-modal-open');
+  }
+
+  function restoreDialogFocus(preferredTarget) {
+    if (preferredTarget && document.contains(preferredTarget) && !preferredTarget.disabled) {
+      preferredTarget.focus();
+    } else if (!els.wordInput.disabled) {
+      els.wordInput.focus();
+    } else if (!els.sharePanel.hidden) {
+      els.shareResultBtn.focus();
+    } else {
+      els.howToPlayBtn.focus();
+    }
+  }
+
+  function closeDialog(modal, restoreFocus) {
+    modal.hidden = true;
+    if (activeDialog !== modal) return;
+
+    var returnFocus = activeDialogReturnFocus;
+    activeDialog = null;
+    activeDialogReturnFocus = null;
+    unlockModalBackground();
+    if (restoreFocus !== false) restoreDialogFocus(returnFocus);
+  }
+
+  function openDialog(modal, options) {
+    options = options || {};
+    if (activeDialog === modal) return;
+    if (activeDialog && activeDialog !== modal) closeDialog(activeDialog, false);
+
+    activeDialog = modal;
+    activeDialogReturnFocus = options.returnFocus || document.activeElement;
+    modal.hidden = false;
+    lockModalBackground(modal);
+
+    window.requestAnimationFrame(function () {
+      if (activeDialog !== modal) return;
+      var initialFocus = options.initialFocus || getFocusableElements(modal)[0];
+      if (initialFocus) initialFocus.focus();
+    });
+  }
+
+  function handleDialogKeydown(event) {
+    if (!activeDialog) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDialog(activeDialog);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    var focusable = getFocusableElements(activeDialog);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    var focusIsOutside = !activeDialog.contains(document.activeElement);
+    if (event.shiftKey && (document.activeElement === first || focusIsOutside)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || focusIsOutside)) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function wireDialogDismissal(modal, buttons) {
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () { closeDialog(modal); });
+    });
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) closeDialog(modal);
+    });
+  }
 
   function persistState() {
     try {
@@ -217,7 +349,8 @@
       updateStats();
       showSharePanel();
     } else {
-      checkSolved();
+      // Rebuild the completed UI without counting a page reload as a new solve.
+      checkSolved(false);
     }
 
     if (hasWordsToReplay) graphView.endBatch();
@@ -244,7 +377,18 @@
 
     graphView.reset();
     els.sharePanel.hidden = true;
-    els.shareStatus.textContent = '';
+    resetCopyUI({
+      status: els.shareStatus,
+      manualCopy: els.shareManualCopy,
+      manualText: els.shareManualText
+    });
+    resetCopyUI({
+      status: els.completionShareStatus,
+      manualCopy: els.completionShareManualCopy,
+      manualText: els.completionShareManualText
+    });
+    shareResultData = null;
+    shareResultText = '';
     els.boardStatus.textContent = '';
     els.wordInput.disabled = false;
     els.wordSubmitBtn.disabled = false;
@@ -312,7 +456,7 @@
     els.wordInput.focus();
 
     updateStats();
-    checkSolved();
+    checkSolved(true);
     persistState();
   }
 
@@ -322,13 +466,14 @@
     els.wordsValue.textContent = submittedWords.length;
   }
 
-  function checkSolved() {
+  function checkSolved(trackOutcome) {
     if (revealed || solved) return;
     var targets = puzzle.targetIndices;
     var root0 = find(targets[0]);
     var allConnected = targets.every(function (t) { return find(t) === root0; });
     if (allConnected) {
       solved = true;
+      if (trackOutcome) trackEvent('puzzle-solved');
       graphView.markSolved();
       els.wordInput.disabled = true;
       els.wordSubmitBtn.disabled = true;
@@ -337,23 +482,25 @@
         els.boardStatus.textContent = 'Perfect! All three words are connected.';
         updateDayLabel();
         showSharePanel();
-    } else {
-      revealOptimalAnswerAfterSolve();
+        if (trackOutcome) openCompletionModal();
+      } else {
+        revealOptimalAnswerAfterSolve(trackOutcome);
+      }
     }
   }
-}
 
-function revealOptimalAnswerAfterSolve() {
-  addOptimalAnswerToBoard();
+  function revealOptimalAnswerAfterSolve(openCompletion) {
+    addOptimalAnswerToBoard();
 
-  els.boardStatus.textContent =
-    'Solved! The perfect solution is shown in rust.';
+    els.boardStatus.textContent =
+      'Solved! The perfect solution is shown in rust.';
 
-  updateDayLabel();
-  updateStats();
-  showSharePanel();
-  persistState();
-}
+    updateDayLabel();
+    updateStats();
+    showSharePanel();
+    persistState();
+    if (openCompletion) openCompletionModal();
+  }
 
 
 
@@ -437,6 +584,7 @@ function addOptimalAnswerToBoard() {
     addOptimalAnswerToBoard();
 
     revealed = true;
+    trackEvent('puzzle-revealed');
 
     els.wordInput.disabled = true;
     els.wordSubmitBtn.disabled = true;
@@ -447,9 +595,10 @@ function addOptimalAnswerToBoard() {
     updateStats();
     showSharePanel();
     persistState();
+    openCompletionModal();
   }
 
-  function showSharePanel() {
+  function getShareResultData() {
     var title = 'Word Web #' + dayNumber;
     var wordsAdded = submittedWords.length;
     var stat, cells, accent;
@@ -474,63 +623,110 @@ function addOptimalAnswerToBoard() {
       accent = null;
     }
 
-function trackShare(action) {
-  if (window.goatcounter && window.goatcounter.count) {
-    window.goatcounter.count({
-      path: 'share-' + action,
-      title: 'Word Web share: ' + action,
-      event: true
-    });
+    return { title: title, stat: stat, cells: cells, url: GAME_URL, accent: accent };
   }
-}
 
+  function resetCopyUI(copyUI) {
+    copyUI.status.textContent = '';
+    copyUI.manualCopy.hidden = true;
+    copyUI.manualText.value = '';
+  }
 
-    var canvas = RMLP.renderShareCard({ title: title, stat: stat, cells: cells, url: GAME_URL, accent: accent });
+  async function copyShareText(text, copyUI) {
+    copyUI.status.textContent = '';
+    try {
+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+        throw new Error('Clipboard text copy is not supported in this browser.');
+      }
+      await navigator.clipboard.writeText(text);
+      copyUI.manualCopy.hidden = true;
+      copyUI.manualText.value = '';
+      copyUI.status.textContent = 'Copied! Paste it anywhere.';
+      trackEvent('share-copy-text');
+      return true;
+    } catch (e) {
+      copyUI.manualText.value = text;
+      copyUI.manualCopy.hidden = false;
+      copyUI.status.textContent = 'Could not copy automatically. Copy your result below.';
+      copyUI.manualText.focus();
+      copyUI.manualText.select();
+      return false;
+    }
+  }
+
+  function showSharePanel() {
+    shareResultData = getShareResultData();
+    shareResultText = RMLP.shareCardText(shareResultData);
+    resetCopyUI({
+      status: els.shareStatus,
+      manualCopy: els.shareManualCopy,
+      manualText: els.shareManualText
+    });
+
+    var canvas = RMLP.renderShareCard(shareResultData);
     els.shareCanvasWrap.innerHTML = '';
     els.shareCanvasWrap.appendChild(canvas);
     els.sharePanel.hidden = false;
+  }
 
-    els.shareCopyImageBtn.onclick = async function () {
-        trackShare('copy-image');
-      try {
-        await RMLP.copyShareCardImage(canvas);
-        els.shareStatus.textContent = 'Image copied to clipboard.';
-      } catch (e) {
-        els.shareStatus.textContent = 'Could not copy image in this browser — try Download instead.';
-      }
-    };
-    els.shareCopyTextBtn.onclick = async function () {
-        trackShare('copy-text');
-      var text = RMLP.shareCardText({ title: title, stat: stat, cells: cells, url: GAME_URL });
-      try {
-        await navigator.clipboard.writeText(text);
-        els.shareStatus.textContent = 'Text copied to clipboard.';
-      } catch (e) {
-        els.shareStatus.textContent = text;
-      }
-    };
-    els.shareDownloadBtn.onclick = function () {
-        trackShare('download');
-      RMLP.downloadShareCard(canvas, 'word-web.png');
-    };
+  function openCompletionModal() {
+    if (!shareResultData) return;
+    els.completionModalTitle.textContent = shareResultData.title;
+    els.completionModalStat.textContent = shareResultData.stat;
+    resetCopyUI({
+      status: els.completionShareStatus,
+      manualCopy: els.completionShareManualCopy,
+      manualText: els.completionShareManualText
+    });
+    openDialog(els.completionModal, {
+      initialFocus: els.completionShareResultBtn,
+      returnFocus: els.shareResultBtn
+    });
   }
 
   function openTutorial() {
     Tutorial.reset();
-    els.modal.hidden = false;
+    openDialog(els.modal, { initialFocus: els.closeModalBtn });
   }
 
   function wireStaticUI() {
-    els.howToPlayBtn.addEventListener('click', openTutorial);
-    els.closeModalBtn.addEventListener('click', function () { els.modal.hidden = true; });
-    els.modal.addEventListener('click', function (e) { if (e.target === els.modal) els.modal.hidden = true; });
-    els.wordForm.addEventListener('submit', handleSubmit);
+    Tutorial.setCloseHandler(function () { closeDialog(els.modal); });
+    wireDialogDismissal(els.modal, [els.closeModalBtn]);
+    wireDialogDismissal(els.revealConfirmModal, [els.revealConfirmCloseBtn, els.revealCancelBtn]);
+    wireDialogDismissal(els.completionModal, [els.completionModalCloseBtn]);
+    document.addEventListener('keydown', handleDialogKeydown);
 
-    els.revealBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = false; });
-    els.revealConfirmCloseBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; });
-    els.revealCancelBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; });
-    els.revealConfirmBtn.addEventListener('click', function () { els.revealConfirmModal.hidden = true; revealAnswer(); });
-    els.revealConfirmModal.addEventListener('click', function (e) { if (e.target === els.revealConfirmModal) els.revealConfirmModal.hidden = true; });
+    els.howToPlayBtn.addEventListener('click', openTutorial);
+    els.feedbackLink.addEventListener('click', function () { trackEvent('feedback-click'); });
+    els.listdleLink.addEventListener('click', function () { trackEvent('listdle-click'); });
+    els.morePuzzlesLink.addEventListener('click', function () { trackEvent('more-puzzles-click'); });
+    els.supportLink.addEventListener('click', function () { trackEvent('support-click'); });
+    els.wordForm.addEventListener('submit', handleSubmit);
+    els.shareResultBtn.addEventListener('click', function () {
+      copyShareText(shareResultText, {
+        status: els.shareStatus,
+        manualCopy: els.shareManualCopy,
+        manualText: els.shareManualText
+      });
+    });
+    els.completionShareResultBtn.addEventListener('click', function () {
+      copyShareText(shareResultText, {
+        status: els.completionShareStatus,
+        manualCopy: els.completionShareManualCopy,
+        manualText: els.completionShareManualText
+      });
+    });
+
+    els.revealBtn.addEventListener('click', function () {
+      openDialog(els.revealConfirmModal, {
+        initialFocus: els.revealCancelBtn,
+        returnFocus: els.revealBtn
+      });
+    });
+    els.revealConfirmBtn.addEventListener('click', function () {
+      closeDialog(els.revealConfirmModal, false);
+      revealAnswer();
+    });
   }
 
   async function init() {
