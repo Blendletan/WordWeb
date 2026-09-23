@@ -19,14 +19,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="css/rmlp-tokens.css">
-<link rel="stylesheet" href="css/word-web.css">
+<link rel="stylesheet" href="css/word-web.css?v=3.6">
 </head>
 <body>
 <div class="rmlp-root ww-app">
 
   <header class="ww-header">
-    <img class="ww-logo" src="assets/rmlp-logo-mark.svg" alt="">
-    <h1 class="ww-wordmark">Word Web</h1>
+    <div class="ww-header-branding">
+      <div class="ww-publisher-lockup" aria-label="An RMLP puzzle">
+        <img class="ww-logo" src="assets/rmlp-logo-mark.svg" width="64" height="64" alt="" aria-hidden="true">
+        <span>RMLP puzzle</span>
+      </div>
+      <h1 class="ww-wordmark">Word Web</h1>
+    </div>
     <div class="ww-header-actions">
       <button class="ww-pill" id="how-to-play-btn" type="button">How to play</button>
       <button class="ww-pill" id="reveal-btn" type="button" disabled>Reveal answer</button>
@@ -145,7 +150,6 @@
       <img class="ww-listdle-badge" src="https://listdle.com/badges/rate-on-listdle-light.svg" alt="Rate on Listdle">
     </a>
     <a class="ww-footer-link" id="more-puzzles-link" href="https://blendletan.github.io/SpellSweep/" target="_blank" rel="noopener noreferrer">More puzzles: SpellSweep</a>
-    <a class="ww-footer-link" id="support-link" href="https://www.paypal.com/paypalme/AceBlender" target="_blank" rel="noopener noreferrer">Support more puzzles &#9749;</a>
   </nav>
 </footer>
 
@@ -157,7 +161,18 @@
 <script src="js/bubble-theme.js"></script>
 <script src="js/graph-view.js"></script>
 <script src="js/tutorial.js"></script>
-<script src="js/app.js"></script>
+<script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
+<script>
+  if (window.kofiWidgetOverlay && typeof window.kofiWidgetOverlay.draw === 'function') {
+    window.kofiWidgetOverlay.draw('randomlittlepuzzles', {
+      type: 'floating-chat',
+      'floating-chat.donateButton.text': 'Support More Puzzles',
+      'floating-chat.donateButton.background-color': '#00b9fe',
+      'floating-chat.donateButton.text-color': '#fff'
+    });
+  }
+</script>
+<script src="js/app.js?v=3.6"></script>
 <script data-goatcounter="https://blendletan.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>

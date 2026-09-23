@@ -35,8 +35,8 @@ body.ww-modal-open { overflow: hidden; }
   padding: var(--rmlp-space-4) var(--rmlp-space-4) var(--rmlp-space-8);
 }
 
-/* Header — deliberately minimal: a small mark, the wordmark, two quiet
-   pills. No border, no title fight with the board below it. */
+/* Header — a small publisher lockup, the wordmark, and two quiet pills.
+   No border, no title fight with the board below it. */
 .ww-header {
   display: flex;
   align-items: center;
@@ -45,7 +45,22 @@ body.ww-modal-open { overflow: hidden; }
   padding: var(--rmlp-space-3) 0;
 }
 
-.ww-logo { width: 28px; height: 28px; flex-shrink: 0; }
+.ww-header-branding { min-width: 0; }
+
+.ww-publisher-lockup {
+  display: flex;
+  min-height: 1.35rem;
+  margin-bottom: 0.1rem;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--rmlp-ink-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ww-logo { width: 1.35rem; height: 1.35rem; flex-shrink: 0; }
 
 .ww-wordmark {
   font-family: var(--rmlp-font-display);
@@ -340,6 +355,11 @@ body.ww-modal-open { overflow: hidden; }
 .ww-listdle-link { padding-block: 4px; }
 .ww-listdle-badge { display: block; width: auto; height: 50px; }
 
+iframe.floatingchat-container {
+  width: 254px !important;
+  max-width: calc(100vw - 2rem) !important;
+}
+
 /* Share panel */
 .ww-share-panel {
   margin-top: var(--rmlp-space-3);
@@ -377,8 +397,11 @@ body.ww-modal-open { overflow: hidden; }
 .ww-share-manual-text:focus-visible { outline: 2px solid var(--rmlp-accent-teal); outline-offset: 1px; }
 
 @media (max-width: 480px) {
+  .ww-logo { width: 1.2rem; height: 1.2rem; }
+  .ww-publisher-lockup { font-size: 0.65rem; }
   .ww-header-actions { width: 100%; justify-content: flex-end; margin-left: 0; }
   .ww-stats-row { gap: var(--rmlp-space-4); }
+  .ww-footer { padding-bottom: 6.5rem; }
   .ww-footer-links { display: grid; grid-template-columns: 1fr; gap: 0; }
   .ww-footer-link { width: 100%; }
 }

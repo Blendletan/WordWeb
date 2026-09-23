@@ -25,9 +25,9 @@ For example:
 python3 -m http.server
 ```
 
-This is the WordWebDebug staging repository. GitHub Pages automatically deploys its
-`main` branch. Production is maintained separately and is not automatically updated by
-this repository.
+This is the production Word Web repository. GitHub Pages automatically deploys its
+`main` branch. Staging is maintained separately in WordWebDebug and is not automatically
+synchronized with this repository.
 
 ## Repository structure
 
@@ -58,6 +58,17 @@ assets/
 Page styling should use the variables in `css/rmlp-tokens.css`. Bubble gradients,
 shadows, rings, and thread curves live in `js/bubble-theme.js` because both the live
 board and tutorial render through that module.
+
+## Branding, footer, and support
+
+The header presents the RMLP mark with the publisher label `RMLP puzzle` above the Word
+Web title. The footer contains feedback, the selected Light Listdle badge, and the link
+to SpellSweep. Voluntary support uses Ko-fi's floating overlay widget for the
+`randomlittlepuzzles` account rather than a footer link.
+
+Footer activations and Ko-fi widget openings are recorded through the fail-silent
+GoatCounter helper in `js/app.js`. The Ko-fi opening event retains the existing
+`support-click` path for reporting continuity.
 
 ## Daily puzzle and persistence
 

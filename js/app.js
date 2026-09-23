@@ -100,8 +100,7 @@
     dayLabel: document.getElementById('day-label'),
     feedbackLink: document.getElementById('feedback-link'),
     listdleLink: document.getElementById('listdle-link'),
-    morePuzzlesLink: document.getElementById('more-puzzles-link'),
-    supportLink: document.getElementById('support-link')
+    morePuzzlesLink: document.getElementById('more-puzzles-link')
   };
 
   var graphView = new GraphView('#graph-svg', { width: 720, height: 480 });
@@ -144,6 +143,19 @@
         });
       }
     } catch (e) { /* Analytics must never interrupt gameplay or navigation. */ }
+  }
+
+  function trackKofiDonateWidget() {
+    var buttonFrames = document.querySelectorAll('iframe[id^="kofi-wo-container"]');
+
+    Array.prototype.forEach.call(buttonFrames, function (frame) {
+      var button = frame.contentDocument && frame.contentDocument.querySelector('.floatingchat-donate-button');
+      if (!button) return;
+
+      button.addEventListener('click', function () {
+        if (button.classList.contains('closed')) trackEvent('support-click');
+      }, true);
+    });
   }
 
   function getFocusableElements(modal) {
@@ -700,7 +712,7 @@ function addOptimalAnswerToBoard() {
     els.feedbackLink.addEventListener('click', function () { trackEvent('feedback-click'); });
     els.listdleLink.addEventListener('click', function () { trackEvent('listdle-click'); });
     els.morePuzzlesLink.addEventListener('click', function () { trackEvent('more-puzzles-click'); });
-    els.supportLink.addEventListener('click', function () { trackEvent('support-click'); });
+    trackKofiDonateWidget();
     els.wordForm.addEventListener('submit', handleSubmit);
     els.shareResultBtn.addEventListener('click', function () {
       copyShareText(shareResultText, {
