@@ -164,9 +164,13 @@
 <script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
 <script>
   if (window.kofiWidgetOverlay && typeof window.kofiWidgetOverlay.draw === 'function') {
+    const supportButtonText = window.matchMedia('(max-width: 30rem)').matches
+      ? 'Support us'
+      : 'Support More Puzzles';
+
     window.kofiWidgetOverlay.draw('randomlittlepuzzles', {
       type: 'floating-chat',
-      'floating-chat.donateButton.text': 'Support More Puzzles',
+      'floating-chat.donateButton.text': supportButtonText,
       'floating-chat.donateButton.background-color': '#00b9fe',
       'floating-chat.donateButton.text-color': '#fff'
     });

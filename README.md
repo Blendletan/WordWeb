@@ -64,7 +64,8 @@ board and tutorial render through that module.
 The header presents the RMLP mark with the publisher label `RMLP puzzle` above the Word
 Web title. The footer contains feedback, the selected Light Listdle badge, and the link
 to SpellSweep. Voluntary support uses Ko-fi's floating overlay widget for the
-`randomlittlepuzzles` account rather than a footer link.
+`randomlittlepuzzles` account rather than a footer link. Its label is `Support us` at
+`30rem` and narrower, and `Support More Puzzles` above that breakpoint.
 
 Footer activations and Ko-fi widget openings are recorded through the fail-silent
 GoatCounter helper in `js/app.js`. The Ko-fi opening event retains the existing
