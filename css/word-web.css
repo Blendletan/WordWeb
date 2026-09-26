@@ -134,6 +134,17 @@ body.ww-modal-open { overflow: hidden; }
 }
 
 .ww-graph { width: 100%; height: auto; display: block; }
+.ww-node {
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+.ww-node.is-dragging { cursor: grabbing; }
+.ww-node:focus-visible .ww-node-ring {
+  stroke: var(--rmlp-accent-gold);
+  stroke-width: 4px;
+  opacity: 1;
+}
 
 /* Loading state — pulsing dashed outlines foreshadowing the real bubbles,
    shown until the daily puzzle finishes generating. */

@@ -116,10 +116,17 @@ It must not be treated as a general reconstruction algorithm for larger terminal
 
 ## Board rendering
 
-The D3 simulation briefly places a newly added node, then pins settled nodes so the web
-does not continually move. `GraphView.beginBatch()` and `endBatch()` let reveal and
-saved-state replay settle groups of nodes together. A bounds force keeps nodes visible,
-and bubble sizes step down after the established node-count thresholds.
+The D3 simulation chooses a clear position using every connection for a newly added
+node, then pins settled nodes so the web does not continually move. Nodes added in rapid
+succession remain movable until the current settle completes. `GraphView.beginBatch()`
+and `endBatch()` let reveal and saved-state replay settle groups of nodes together. A
+bounds force and final overlap pass use the full visible bubble footprint, and bubble
+sizes step down after the established node-count thresholds.
+
+Live-board bubbles can be dragged with a pointer or repositioned with the keyboard arrow
+keys. Connected threads follow immediately and the released bubble remains pinned for
+the current page session. Manual positions are intentionally not added to the saved-game
+format and reset when the page reloads.
 
 The live board and tutorial use separate SVG definition prefixes (`ww` and `tut`) so
 their gradients and filters cannot collide.

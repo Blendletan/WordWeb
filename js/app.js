@@ -300,13 +300,17 @@
   function commitNewWord(idx, word, attachTo, isRevealed) {
     webIndices.add(idx);
     unionParent.set(idx, idx);
+    graphView.addNode(idx, word, {
+      isTarget: false,
+      parentId: attachTo[0],
+      connectedIds: attachTo,
+      revealed: !!isRevealed
+    });
     attachTo.forEach(function (parentIdx, i) {
       var key = edgeKey(idx, parentIdx);
       if (edgeSet.has(key)) return;
       edgeSet.add(key);
-      if (i === 0) {
-        graphView.addNode(idx, word, { isTarget: false, parentId: parentIdx, revealed: !!isRevealed });
-      } else {
+      if (i > 0) {
         graphView.addLinkBetweenExisting(idx, parentIdx);
       }
       union(idx, parentIdx);
