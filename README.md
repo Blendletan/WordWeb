@@ -7,6 +7,7 @@ submitted words produce a better score.
 ## Game rules
 
 - A submission must be exactly five letters and exist in `data/words.json`.
+- Daily target words use the same five-letter ASCII alphabet accepted by the input.
 - It must differ by exactly one letter from at least one word already on the board.
 - One submission can bridge multiple disconnected branches at once.
 - A new word connects once to each distinct component it touches, avoiding redundant

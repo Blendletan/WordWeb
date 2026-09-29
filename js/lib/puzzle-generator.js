@@ -35,6 +35,10 @@
     return true;
   }
 
+  function targetsUsePlayableAlphabet(graph, indices) {
+    return indices.every((index) => /^[a-z]{5}$/.test(graph.wordAt(index)));
+  }
+
   /**
    * @param {WordGraph} graph
    * @param {Object} opts
@@ -55,6 +59,9 @@
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const indices = pickDistinct(rng, n, k);
+      // Keep legacy graph indices stable, but never surface its accented leaf
+      // words as targets because players cannot enter those characters.
+      if (!targetsUsePlayableAlphabet(graph, indices)) continue;
       if (!pairwiseNonAdjacent(graph, indices)) continue;
       const par = root.SteinerSolver.minSteinerEdges(graph.adjacency, indices);
       if (par >= minPar && par <= maxPar) {
