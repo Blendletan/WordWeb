@@ -1,5 +1,54 @@
-/* RMLP Design Tokens — retro puzzle-book palette, v1
-   Load fonts separately first (see rmlp-fonts.html) before using these. */
+/* RMLP Design Tokens — retro puzzle-book palette, v1 */
+
+/* Self-hosted Google Fonts Latin webfont builds. License notices are kept in
+   assets/fonts alongside the font files. */
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/courier-prime-regular-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/courier-prime-bold-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/fraunces-variable-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/libre-franklin-variable-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/libre-franklin-variable-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/libre-franklin-variable-latin.woff2') format('woff2');
+}
 
 :root {
   /* Color: paper */

@@ -52,6 +52,7 @@ data/
 tools/
   build_word_graph.py       Word-graph rebuild utility
 assets/
+  fonts/                     Self-hosted RMLP webfonts and OFL license notices
   rmlp-logo-mark.svg        Small logo mark and favicon
   rmlp-logo-full.svg        Full logo lockup
 ```
@@ -59,6 +60,11 @@ assets/
 Page styling should use the variables in `css/rmlp-tokens.css`. Bubble gradients,
 shadows, rings, and thread curves live in `js/bubble-theme.js` because both the live
 board and tutorial render through that module.
+
+Courier Prime, Fraunces, and Libre Franklin are served from `assets/fonts` rather than
+from Google at runtime. Their SIL Open Font License notices are stored beside the font
+files. Application startup waits for the canvas-used faces before restored terminal
+states can render a result preview; font loading failure remains non-fatal.
 
 ## Branding, footer, and support
 

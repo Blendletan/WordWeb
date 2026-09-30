@@ -2,7 +2,20 @@
 <title>RMLP</title>
 <desc>RMLP wordmark: a stamp-style badge with a five-node graph motif beside the RMLP wordmark and the tagline "Word puzzles, structurally".</desc>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Libre+Franklin:wght@500&display=swap');
+  @font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('fonts/fraunces-variable-latin.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Libre Franklin';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('fonts/libre-franklin-variable-latin.woff2') format('woff2');
+  }
   .rmlp-wordmark { font-family: 'Fraunces', Georgia, serif; font-weight: 700; }
   .rmlp-tagline { font-family: 'Libre Franklin', -apple-system, sans-serif; font-weight: 500; }
 </style>

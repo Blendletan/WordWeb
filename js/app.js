@@ -145,6 +145,20 @@
     } catch (e) { /* Analytics must never interrupt gameplay or navigation. */ }
   }
 
+  function loadCanvasFonts() {
+    if (!document.fonts || typeof document.fonts.load !== 'function') {
+      return Promise.resolve();
+    }
+
+    return Promise.all([
+      document.fonts.load("700 20px 'Fraunces'"),
+      document.fonts.load("400 13px 'Courier Prime'"),
+      document.fonts.load("700 13px 'Courier Prime'")
+    ]).catch(function () {
+      // Font fallbacks still produce a usable board and result preview.
+    });
+  }
+
   function trackKofiDonateWidget() {
     var buttonFrames = document.querySelectorAll('iframe[id^="kofi-wo-container"]');
 
@@ -748,7 +762,11 @@ function addOptimalAnswerToBoard() {
   async function init() {
     wireStaticUI();
     els.boardStatus.textContent = 'Loading today\u2019s puzzle\u2026';
-    graph = await WordGraph.load('data/words.json');
+    var initialAssets = await Promise.all([
+      WordGraph.load('data/words.json'),
+      loadCanvasFonts()
+    ]);
+    graph = initialAssets[0];
     loadDailyPuzzle();
 
     if (!localStorage.getItem(INSTRUCTIONS_SEEN_KEY)) {
