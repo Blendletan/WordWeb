@@ -1,177 +1,88 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Word Web — Free Daily Word Ladder Puzzle | RMLP</title>
-<meta name="description" content="Play Word Web, a free daily word ladder puzzle. Connect three five-letter words into one web by changing one letter at a time. Use fewer words for a better score.">
-<link rel="canonical" href="https://blendletan.github.io/WordWeb/">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Word Web — Free Daily Word Ladder Puzzle">
-<meta property="og:description" content="Connect three five-letter words into one web by changing one letter at a time. Use as few extra words as possible. Play a new free puzzle every day.">
-<meta property="og:url" content="https://blendletan.github.io/WordWeb/">
-<meta property="og:site_name" content="RMLP">
-<link rel="icon" type="image/svg+xml" href="assets/rmlp-logo-mark.svg">
-
-<link rel="stylesheet" href="css/rmlp-tokens.css?v=local-fonts-1">
-<link rel="stylesheet" href="css/word-web.css?v=3.8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Web has moved | RMLP</title>
+  <meta name="description" content="Word Web has moved to Random Mind-bending Little Puzzles.">
+  <link rel="canonical" href="https://randomlittlepuzzles.com/word-web/">
+  <!-- JavaScript-disabled fallback (cannot preserve query parameters). -->
+  <meta http-equiv="refresh" content="2;url=https://randomlittlepuzzles.com/word-web/">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f6efdd;
+      color: #2a2018;
+      font: 1rem/1.5 system-ui, sans-serif;
+      text-align: center;
+    }
+    main { padding: 2rem; }
+    a { color: #1f5c55; }
+  </style>
 </head>
 <body>
-<div class="rmlp-root ww-app">
-
-  <header class="ww-header">
-    <div class="ww-header-branding">
-      <div class="ww-publisher-lockup" aria-label="An RMLP puzzle">
-        <img class="ww-logo" src="assets/rmlp-logo-mark.svg" width="64" height="64" alt="" aria-hidden="true">
-        <span>RMLP puzzle</span>
-      </div>
-      <h1 class="ww-wordmark">Word Web</h1>
-    </div>
-    <div class="ww-header-actions">
-      <button class="ww-pill" id="how-to-play-btn" type="button">How to play</button>
-      <button class="ww-pill" id="reveal-btn" type="button" disabled>Reveal answer</button>
-    </div>
-  </header>
-  <p class="ww-hint" id="day-label"></p>
-
-  <main class="ww-board">
-    <svg id="graph-svg" class="ww-graph" role="group" aria-label="Word web graph. Drag a word bubble or focus it and use the arrow keys to reposition it." hidden></svg>
-    <div class="ww-board-loading" id="board-loading">
-      <svg viewBox="0 0 340 200" aria-hidden="true">
-        <circle class="ww-load-dot d1" cx="170" cy="45" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
-        <circle class="ww-load-dot d2" cx="80" cy="145" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
-        <circle class="ww-load-dot d3" cx="260" cy="145" r="30" fill="none" stroke="#6E5D4C" stroke-width="1.5" stroke-dasharray="3 5"/>
-      </svg>
-    </div>
+  <main>
+    <h1>Word Web has moved</h1>
+    <p>Redirecting you to our new website&hellip;</p>
+    <p><a id="continue" href="https://randomlittlepuzzles.com/word-web/">Continue to Word Web</a></p>
   </main>
-  <p class="ww-hint" id="board-status" aria-live="polite"></p>
+  <script>
+    (() => {
+      'use strict';
 
-  <section class="ww-entry">
-    <form class="ww-entry-form" id="word-form">
-      <label class="sr-only" for="word-input">Enter a 5-letter word to add to your web</label>
-      <input
-        type="text"
-        id="word-input"
-        class="ww-word-input"
-        maxlength="5"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        placeholder="Type a 5-letter word…"
-        disabled>
-      <button class="ww-btn ww-btn-accent" id="word-submit-btn" type="submit" disabled>Add</button>
-    </form>
-    <p class="ww-entry-feedback" id="entry-feedback" aria-live="polite"></p>
-  </section>
+      const destination = new URL('https://randomlittlepuzzles.com/word-web/');
+      destination.search = location.search;
+      destination.hash = location.hash;
+      document.getElementById('continue').href = destination.href;
 
-  <div class="ww-stats-row" id="stats-row" hidden>
-    <span class="ww-stat">perfect <b id="perfect-value">–</b></span>
-    <span class="ww-stat">par <b id="par-value">–</b></span>
-    <span class="ww-stat">words <b id="words-value">0</b></span>
-  </div>
+      const redirect = () => location.replace(destination.href);
 
-  <section class="ww-share-panel" id="share-panel" hidden>
-    <p class="ww-hint">Share your result</p>
-    <div id="share-canvas-wrap"></div>
-    <div class="ww-share-actions">
-      <button class="ww-btn ww-btn-accent" id="share-result-btn" type="button">Share result</button>
-    </div>
-    <p class="ww-share-status" id="share-status" aria-live="polite"></p>
-    <div class="ww-share-manual" id="share-manual-copy" hidden>
-      <label for="share-manual-text">Copy your result manually</label>
-      <textarea class="ww-share-manual-text" id="share-manual-text" rows="5" readonly></textarea>
-    </div>
-  </section>
+      // Preserve the existing GoatCounter account and original page path.
+      // The q parameter supplies campaign information, including UTM tags.
+      // This is the documented GoatCounter /count tracking endpoint.
+      const data = new URLSearchParams({
+        p: location.pathname,
+        t: document.title,
+        q: location.search,
+        s: String(screen.width),
+        rnd: Math.random().toString(36).slice(2)
+      });
+      if (document.referrer) data.set('r', document.referrer);
 
-  <div class="ww-modal-backdrop" id="completion-modal" hidden>
-    <div class="ww-modal ww-completion-modal" role="dialog" aria-modal="true" aria-labelledby="completion-modal-title" aria-describedby="completion-modal-stat">
-      <button class="ww-modal-close" id="completion-modal-close-btn" type="button" aria-label="Close">&times;</button>
-      <h2 class="ww-modal-title" id="completion-modal-title"></h2>
-      <p class="ww-completion-stat" id="completion-modal-stat"></p>
-      <div class="ww-share-actions">
-        <button class="ww-btn ww-btn-accent" id="completion-share-result-btn" type="button">Share result</button>
-      </div>
-      <p class="ww-share-status" id="completion-share-status" aria-live="polite"></p>
-      <div class="ww-share-manual" id="completion-share-manual-copy" hidden>
-        <label for="completion-share-manual-text">Copy your result manually</label>
-        <textarea class="ww-share-manual-text" id="completion-share-manual-text" rows="5" readonly></textarea>
-      </div>
-    </div>
-  </div>
+      const trackingUrl = 'https://blendletan.goatcounter.com/count?' + data.toString();
 
-  <div class="ww-modal-backdrop" id="how-to-play-modal" hidden>
-    <div class="ww-modal ww-tutorial-modal" role="dialog" aria-modal="true" aria-labelledby="how-to-play-title">
-      <button class="ww-modal-close" id="close-modal-btn" type="button" aria-label="Close">&times;</button>
-      <h2 class="sr-only" id="how-to-play-title">How to play Word Web</h2>
+      // Match GoatCounter's built-in preference to skip tracking.
+      try {
+        if (localStorage.getItem('skipgc') === 't') {
+          redirect();
+          return;
+        }
+      } catch (_) { /* Storage can be unavailable; don't block navigation. */ }
 
-      <div id="tutorial-caption" class="ww-tutorial-caption"></div>
+      // GoatCounter uses sendBeacon itself; it survives page navigation.
+      // If unsupported or not queued, try its documented image fallback.
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon(trackingUrl)) {
+          redirect();
+          return;
+        }
+      } catch (_) { /* Try the image fallback. */ }
 
-      <div class="ww-tutorial-board">
-        <svg id="tutorial-svg" viewBox="0 0 360 270" role="img" aria-label="Tutorial example board"></svg>
-      </div>
-
-      <div class="ww-stats-row">
-        <span class="ww-stat">perfect <b id="tutorial-perfect">4</b></span>
-        <span class="ww-stat">par <b id="tutorial-par">7</b></span>
-        <span class="ww-stat">words <b id="tutorial-words">0</b></span>
-      </div>
-
-      <div class="ww-tutorial-controls">
-        <button class="ww-btn" id="tutorial-prev-btn" type="button">Back</button>
-        <div class="ww-tutorial-dots" id="tutorial-dots"></div>
-        <button class="ww-btn ww-btn-accent" id="tutorial-next-btn" type="button">Next</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="ww-modal-backdrop" id="reveal-confirm-modal" hidden>
-    <div class="ww-modal" role="dialog" aria-modal="true" aria-labelledby="reveal-confirm-title">
-      <button class="ww-modal-close" id="reveal-confirm-close-btn" type="button" aria-label="Close">&times;</button>
-      <h2 class="ww-modal-title" id="reveal-confirm-title">Reveal the answer?</h2>
-      <p>This shows the optimal solution and marks today's puzzle <strong>Revealed</strong>. There's no way to try again until tomorrow's puzzle.</p>
-      <div class="ww-modal-actions">
-        <button class="ww-btn" id="reveal-cancel-btn" type="button">Cancel</button>
-        <button class="ww-btn ww-btn-accent" id="reveal-confirm-btn" type="button">Reveal Answer</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<footer class="ww-footer">
-  <nav class="ww-footer-links" aria-label="Word Web links">
-    <a class="ww-footer-link" id="feedback-link" href="mailto:robertparkinson@shaw.ca">Send feedback</a>
-    <a class="ww-footer-link ww-listdle-link" id="listdle-link" href="https://listdle.com/games/word-web" target="_blank" rel="noopener noreferrer">
-      <img class="ww-listdle-badge" src="https://listdle.com/badges/rate-on-listdle-light.svg" alt="Rate on Listdle">
-    </a>
-    <a class="ww-footer-link" id="more-puzzles-link" href="https://blendletan.github.io/RandomLittlePuzzles/" target="_blank" rel="noopener noreferrer">More puzzles</a>
-  </nav>
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-<script src="js/lib/wordgraph.js"></script>
-<script src="js/lib/steiner.js"></script>
-<script src="js/lib/puzzle-generator.js?v=3.8.1"></script>
-<script src="js/rmlp-share-card.js"></script>
-<script src="js/bubble-theme.js"></script>
-<script src="js/graph-view.js?v=3.8"></script>
-<script src="js/tutorial.js"></script>
-<script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
-<script>
-  if (window.kofiWidgetOverlay && typeof window.kofiWidgetOverlay.draw === 'function') {
-    const supportButtonText = window.matchMedia('(max-width: 30rem)').matches
-      ? 'Support us'
-      : 'Support More Puzzles';
-
-    window.kofiWidgetOverlay.draw('randomlittlepuzzles', {
-      type: 'floating-chat',
-      'floating-chat.donateButton.text': supportButtonText,
-      'floating-chat.donateButton.background-color': '#00b9fe',
-      'floating-chat.donateButton.text-color': '#fff'
-    });
-  }
-</script>
-<script src="js/app.js?v=local-fonts-1"></script>
-<script data-goatcounter="https://blendletan.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        redirect();
+      };
+      const pixel = new Image();
+      pixel.onload = finish;
+      pixel.onerror = finish;
+      setTimeout(finish, 800);
+      pixel.src = trackingUrl;
+    })();
+  </script>
 </body>
 </html>
